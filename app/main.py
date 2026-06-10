@@ -5,7 +5,11 @@ Run the four checkpoint questions:  python -m app.main
 (FastAPI/SSE endpoint is added to this file in Phase 4.)
 """
 
+import json
 import re
+
+from fastapi import FastAPI
+from fastapi.responses import FileResponse, StreamingResponse
 
 from app import config, decompose, retrieve, router, synthesize
 
@@ -80,6 +84,53 @@ def answer(question: str) -> dict:
     cited_tickers = {cid.split("-")[0] for cid in cited}
     gaps = [config.COMPANIES[t] for t in meta["route"]["tickers"] if t not in cited_tickers]
     return {**meta, "answer": text, "citations": sorted(cited), "gaps": gaps, "refused": False}
+
+
+# --- Phase 4: FastAPI app + SSE streaming endpoint ---
+app = FastAPI()
+
+INDEX_HTML = config._ROOT / "static" / "index.html"
+
+
+def _sse(event: str, data: dict) -> str:
+    return f"event: {event}\ndata: {json.dumps(data)}\n\n"
+
+
+def _stream_events(question: str):
+    """SSE generator: stream answer tokens, then a 'done' event with citations + gaps."""
+    meta = prepare(question)
+    if meta.get("refused"):
+        yield _sse("token", {"text": meta["answer"]})
+        yield _sse("done", {"citations": [], "gaps": [], "refused": True,
+                            "refusal_reason": meta["refusal_reason"]})
+        return
+
+    ctx = {c["chunk_id"]: c for c in meta["context_chunks"]}
+    acc = []
+    for t in synthesize.stream_answer(question, meta["context_chunks"]):
+        acc.append(t)
+        yield _sse("token", {"text": t})
+
+    text = "".join(acc)
+    cited = sorted(set(CITATION_RE.findall(text)))
+    cited_tickers = {cid.split("-")[0] for cid in cited}
+    gaps = [config.COMPANIES[t] for t in meta["route"]["tickers"] if t not in cited_tickers]
+    citations = [{
+        "chunk_id": cid, "company": ctx[cid]["company"],
+        "section": ctx[cid].get("section_title") or ctx[cid].get("item") or "",
+        "text": ctx[cid]["text"],
+    } for cid in cited if cid in ctx]
+    yield _sse("done", {"citations": citations, "gaps": gaps, "refused": False})
+
+
+@app.get("/")
+def index():
+    return FileResponse(INDEX_HTML)
+
+
+@app.get("/api/stream")
+def stream(q: str):
+    return StreamingResponse(_stream_events(q), media_type="text/event-stream")
 
 
 def _print(question: str, res: dict) -> None:

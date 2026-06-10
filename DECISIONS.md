@@ -77,6 +77,14 @@ See requirements.txt; each line carries its justification.
 - anthropic SDK upgraded 0.42.0 -> 0.109.1: 0.42 predates `output_config` (structured JSON output
   used for decomposition). Verified the four checkpoint questions behave per spec after upgrade.
 
+### Phase 4 — frontend (2026-06-10)
+- Single static page (static/index.html), vanilla JS, no build step. FastAPI serves it at `/`
+  and streams answers from `GET /api/stream?q=` via SSE (EventSource). Two event types: `token`
+  (incremental answer text) and `done` (citations + gaps). Citations render as expandable
+  <details> passages labeled company + section. Refusals stream as a single token + done.
+- Verified at the protocol level: page serves, NVIDIA streams + cites NVDA-0179 (contains
+  "Total revenue = 215,938"), Tesla refuses via threshold.
+
 ## Filings used (Phase 1, fetched 2026-06-10 from EDGAR)
 | Ticker | Company | Form | Accession | Filed | Fiscal period end (from doc name) |
 |--------|---------|------|-----------|-------|-----------------------------------|
