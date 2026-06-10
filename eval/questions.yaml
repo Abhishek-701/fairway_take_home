@@ -17,26 +17,66 @@
 #                              footnote | refusal_oos | refusal_undisclosed
 #   note            (optional) a reminder to yourself for grading (e.g. the correct figure)
 
-- question: "PLACEHOLDER — single-company table lookup"
+- question: "What were Coca-Cola's net operating revenues for fiscal year 2024?"
   category: lookup
-  note: ""
-
-- question: "PLACEHOLDER — multi-company comparison"
+  note: "Income-statement top line. Coca-Cola labels it 'Net operating revenues', not 'Revenue',
+         so this also tests terminology. Record the exact figure + units (millions) from Item 8."
+ 
+- question: "What were Walmart's total assets at the end of its most recent fiscal year?"
+  category: lookup
+  note: "Balance-sheet lookup — confirms the system reads statements beyond the income statement.
+         Record the figure + units."
+ 
+# --- multi-company comparison 
+- question: "Which of these companies reported the highest total revenue in its most recent
+             fiscal year, and what were the figures?"
   category: comparison
-  note: ""
-
-- question: "PLACEHOLDER — units/scale or fiscal-year-mismatch trap"
+  note: "Fans out across all six. A correct answer must also state each company's fiscal-year-end,
+         since the periods are not the same. Fill in the six top-line figures from each Item 8 to grade.
+         Watch terminology: Apple 'net sales', Coca-Cola 'net operating revenues', Caterpillar
+         'total sales and revenues', JPMorgan 'total net revenue'."
+ 
+# --- units trap  ---
+- question: "What was Apple's diluted weighted-average share count for fiscal 2025?"
   category: units
-  note: ""
-
-- question: "PLACEHOLDER — footnote-qualified figure"
+  note: "Trap: on Apple's income statement, dollars are in millions but share counts are in
+         THOUSANDS. A system that stamps one 'in millions' label on the whole table is off by 1000x.
+         Verify the scale on the face of the statement and record the correct number + unit."
+ 
+# --- fiscal-year-mismatch ---
+- question: "Compare Walmart's and Coca-Cola's most recent annual total revenue. What period does
+             each figure cover?"
+  category: fiscal_year
+  note: "Walmart's FY ends ~Jan 31, 2025; Coca-Cola's ends Dec 31, 2024. Correct answer must flag
+         that the two figures cover DIFFERENT periods and not present them as the same year.
+         Record both figures."
+ 
+# --- footnote-qualified figure (meaning changes once the note is read) ---
+- question: "What does NVIDIA's most recent 10-K disclose about customer concentration, and what
+             portion of revenue did its largest customer(s) represent?"
   category: footnote
-  note: ""
-
-- question: "PLACEHOLDER — out-of-corpus company (should refuse via threshold)"
+  note: "Note/MD&A-driven (concentration of revenue, significant customers). The percentage is
+         meaningless without the surrounding disclosure. VERIFY the exact wording/figure exists in
+         NVIDIA's filing; if phrased differently (e.g. 'one customer accounted for ~X%'), match it.
+         Tests whether the system surfaces the qualifier, not just a bare number."
+ 
+# --- near-miss line-item precision (weakness #3) ---
+- question: "What was Caterpillar's total sales and revenues, and separately its profit (net income),
+             for 2024?"
+  category: precision
+  note: "Tests whether the system confuses the top line ('total sales and revenues') with the
+         bottom line ('profit'/'net income'). Both are on the income statement; record both exact
+         figures. A precisely-cited but wrong-concept answer is the failure to watch for."
+ 
+# --- refusal: out-of-corpus company (should refuse via threshold gate) ---
+- question: "What was Microsoft's total revenue in its latest fiscal year?"
   category: refusal_oos
-  note: ""
-
-- question: "PLACEHOLDER — covered company, undisclosed metric (should refuse via synthesis/gaps)"
+  note: "Microsoft is NOT in the corpus. Expected: refuse via the threshold gate (no relevant
+         chunks retrieved). Grade refusal-correct, not a number."
+ 
+# --- refusal: covered company, undisclosed metric (should refuse via synthesis/gaps) ---
+- question: "What is JPMorgan Chase's customer Net Promoter Score (NPS)?"
   category: refusal_undisclosed
-  note: ""
+  note: "JPMorgan IS covered, but a 10-K does not report NPS. Retrieval WILL return JPMorgan chunks
+         that lack the answer, so the threshold won't fire — this must be caught by the synthesis/gaps
+         gate stating 'not found', not a guess. Grade refusal-correct. This is the hardest refusal case."

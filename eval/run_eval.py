@@ -62,7 +62,7 @@ def run(qpath: Path, outpath: Path) -> None:
 
     header = (
         f"# Eval results\n\n"
-        f"Generated {date.today().isoformat()} · model `{config.CHAT_MODEL}` · "
+        f"Generated {date.today().isoformat()} - model `{config.CHAT_MODEL}` - "
         f"dense-similarity threshold {config.DENSE_SIM_THRESHOLD}\n\n"
         f"Grades are BLANK by design (G4 — fill these in by hand):\n"
         f"- **correct** = the figure/claim is right\n"
@@ -75,7 +75,7 @@ def run(qpath: Path, outpath: Path) -> None:
     )
     body = "\n".join(rows)
     detail = "\n\n## Answers (for grading)\n\n" + "\n---\n\n".join(details)
-    outpath.write_text(header + body + "\n" + detail)
+    outpath.write_text(header + body + "\n" + detail, encoding="utf-8")
     print(f"\nWrote {outpath} ({len(items)} questions). Grade cells are blank for you to fill.")
 
 
