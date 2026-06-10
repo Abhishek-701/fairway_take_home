@@ -36,10 +36,8 @@ def main() -> None:
 
     client = chromadb.PersistentClient(path=config.CHROMA_DIR)
     # Fresh build each run so re-ingest is reproducible (cheap; corpus is small).
-    try:
+    if any(c.name == config.COLLECTION for c in client.list_collections()):
         client.delete_collection(config.COLLECTION)
-    except Exception:  # noqa: BLE001 - collection may not exist on first run; that's fine
-        pass
     coll = client.create_collection(config.COLLECTION, metadata={"hnsw:space": "cosine"})
 
     # Chroma metadata values must be scalars (no None) — coerce missing item/section to "".
