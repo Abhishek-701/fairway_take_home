@@ -233,7 +233,12 @@ def parse_filing(html: str, company: str, meta: dict) -> list[dict]:
             if ser is None:
                 continue
             units = find_units(el, caption)
-            header = f"[{company}] {cur_title or ''} (units: {units or 'n/a'})".strip()
+            # Prepend the table's caption (the prose line just above it, e.g. "The following
+            # table shows net sales by reportable segment...") so the table is retrievable by
+            # its description, not just the generic Item heading. Capped to keep it focused.
+            cap = caption[:200].strip()
+            label = f"{cur_title or ''}{' — ' + cap if cap else ''}"
+            header = f"[{company}] {label} (units: {units or 'n/a'})".strip()
             text = header + "\n" + "\n".join(ser["lines"])
             blocks.append({
                 "kind": "table", "item": cur_item, "section_title": cur_title,

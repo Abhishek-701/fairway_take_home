@@ -77,6 +77,19 @@ See requirements.txt; each line carries its justification.
 - anthropic SDK upgraded 0.42.0 -> 0.109.1: 0.42 predates `output_config` (structured JSON output
   used for decomposition). Verified the four checkpoint questions behave per spec after upgrade.
 
+### Phase 3/2 fix — table caption in chunk text (2026-06-10, found via manual test)
+- Bug: "net sales by region for Apple" returned a false "not found" — the segment-table chunk
+  was parsed correctly but unretrievable: its searchable text carried only the generic Item
+  heading (no "segment"/"region"), so BM25+dense ranked product-table/MD&A prose above it and
+  it fell outside top-k. System did NOT hallucinate (refused on bad context) — a retrieval miss.
+- Fix: parse.py now prepends each table's caption (the prose line just above it, e.g. "The
+  following table shows net sales by reportable segment...") to the table chunk's header, making
+  tables retrievable by description. Re-ingested (2419 -> 2427 chunks). Verified the exact query
+  now returns Americas 178,353 / Europe 111,032 / Greater China 64,377 / Japan 28,703 / Rest of
+  Asia Pacific 33,696 / Total 416,161, matching the filing. Four checkpoint questions: no regression.
+- Side effect: re-embedding shifted KO-attrition probe 0.518 -> 0.503 (still > 0.50). Threshold
+  margin is now razor-thin — reinforces Known Weakness #5; Phase 6 calibration with more probes.
+
 ### Phase 4 — frontend (2026-06-10)
 - Single static page (static/index.html), vanilla JS, no build step. FastAPI serves it at `/`
   and streams answers from `GET /api/stream?q=` via SSE (EventSource). Two event types: `token`
