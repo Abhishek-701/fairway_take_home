@@ -1,0 +1,42 @@
+# Eval questions — YOU write these (guardrail G4: the runner must not author or grade them).
+# Replace every PLACEHOLDER below with your own question, then run:  python eval/run_eval.py
+#
+# The set should include (per the brief / DECISIONS Known Weaknesses):
+#   - a straightforward single-company table lookup
+#   - a multi-company comparison (exercises decomposition)
+#   - at least ONE units/scale OR fiscal-year-mismatch question whose naive answer is wrong
+#     (e.g. a figure reported "in thousands", or an Apple-vs-peer comparison across different
+#      fiscal year ends)
+#   - ideally one FOOTNOTE-qualified figure (a number whose meaning changes once its note is read)
+#   - refusal probes: an OUT-OF-CORPUS question (a company we don't cover) and an
+#     IN-CORPUS-BUT-UNDISCLOSED question (a covered company, a metric the 10-K doesn't report)
+#
+# Fields per item:
+#   question        (required) the question text
+#   category        (optional) your label, e.g. lookup | comparison | units | fiscal_year |
+#                              footnote | refusal_oos | refusal_undisclosed
+#   note            (optional) a reminder to yourself for grading (e.g. the correct figure)
+
+- question: "PLACEHOLDER — single-company table lookup"
+  category: lookup
+  note: ""
+
+- question: "PLACEHOLDER — multi-company comparison"
+  category: comparison
+  note: ""
+
+- question: "PLACEHOLDER — units/scale or fiscal-year-mismatch trap"
+  category: units
+  note: ""
+
+- question: "PLACEHOLDER — footnote-qualified figure"
+  category: footnote
+  note: ""
+
+- question: "PLACEHOLDER — out-of-corpus company (should refuse via threshold)"
+  category: refusal_oos
+  note: ""
+
+- question: "PLACEHOLDER — covered company, undisclosed metric (should refuse via synthesis/gaps)"
+  category: refusal_undisclosed
+  note: ""

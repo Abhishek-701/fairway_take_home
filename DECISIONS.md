@@ -90,6 +90,14 @@ See requirements.txt; each line carries its justification.
 - Side effect: re-embedding shifted KO-attrition probe 0.518 -> 0.503 (still > 0.50). Threshold
   margin is now razor-thin — reinforces Known Weakness #5; Phase 6 calibration with more probes.
 
+### Phase 6 — eval harness (2026-06-10)
+- eval/run_eval.py runs each question in eval/questions.yaml through the pipeline and writes
+  eval/results.md: a table (route, refused, refusal reason, top_sim, citations, gaps) with BLANK
+  grade columns (correct / grounded / refusal-correct) plus a full-answers section. Per G4 it does
+  NOT auto-grade and does NOT author questions; questions.yaml ships as a template for the user.
+- top_sim is recorded per question so refusal probes feed threshold calibration (Known Weakness #5).
+- Smoke-tested on one answerable + one refusal question (both row types render correctly).
+
 ### Phase 4 — frontend (2026-06-10)
 - Single static page (static/index.html), vanilla JS, no build step. FastAPI serves it at `/`
   and streams answers from `GET /api/stream?q=` via SSE (EventSource). Two event types: `token`
