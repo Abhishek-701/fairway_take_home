@@ -116,12 +116,27 @@ FIX 2 — Phase 5 cross-encoder reranker (ms-marco-MiniLM-L-6-v2) over the top-3
     again. Both chunks literally say "Total revenues", so neither retrieval nor reranking reliably
     distinguishes the U.S.-segment total from the company total.
 
-HONEST RESIDUAL (Known Weakness #3, not fully solved): segment-vs-consolidated is a CONCEPT-level
-distinction the system can't make from terminology alone. Next-week fix: (a) label segment-table
-rows with the segment name during parse so "Walmart U.S. | Total revenues = 485,599" is unambiguous;
-(b) XBRL/companyfacts cross-check of headline figures against the tagged consolidated facts;
-(c) concept-level checks in synthesis. Reranker left ON (net positive, no regressions) but it pulls
-a heavy torch dependency and is fully toggleable for the with/without comparison the brief asks for.
+FIX 3 — Scope label at parse time (parse.py `_infer_scope`): prepend "Consolidated" / "Segment-level"
+to every table row, inferred from the table caption/section ("consolidated"/"combined" vs
+"segment"/"geographic"/"reportable"). Rows now read `Consolidated | Total revenues ... = 713,163`
+vs `Segment-level | Total revenues ... = 485,599`, putting the scope in the text where retrieval,
+rerank, and synthesis can all see it. Re-ingested (2440 chunks).
+  - Q5: still CORRECT, and now robust — the consolidated figure wins, the segment figure is clearly
+    labeled segment-level so it can't masquerade as the company total. Concept-mislabel fixed.
+  - Q3: STILL WRONG ("NVIDIA highest $215,938M"), but the cause has MOVED. The consolidated chunk
+    WMT-0101 now retrieves at rank ~8 in Walmart's sub-query (was ~17-30), but in the six-company
+    fan-out the global 24-chunk context cap (MAX_CONTEXT_CHUNKS, sorted by fused score) trims that
+    low-ranked chunk before synthesis sees it. So Q3 is now a context-BUDGET / recall problem, not a
+    concept error.
+
+HONEST RESIDUAL: Q3 multi-company comparison still misses Walmart's (and Apple's) consolidated total.
+Root cause is now the global context cap trimming a company's best table chunk when it ranks low
+within its own sub-query. Next fix (cheap, principled, NOT yet applied — needs API credits to
+re-verify): allocate the 24-chunk budget PER sub-query (round-robin across companies) instead of a
+single global fused-score sort, so every company contributes its top chunks to a comparison. Deeper
+fixes for numeric fidelity remain as before: XBRL/companyfacts cross-check (Known Weakness #1/#3),
+table-aware chunking, concept-level checks. Reranker left ON (net positive, no regressions) but it
+pulls a heavy torch dependency and is fully toggleable.
 
 ### Phase 6 — eval harness (2026-06-10)
 - eval/run_eval.py runs each question in eval/questions.yaml through the pipeline and writes

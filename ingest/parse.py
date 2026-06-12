@@ -45,6 +45,10 @@ UNIT_RE = re.compile(r"in (thousands|millions|billions)", re.I)
 FOOTNOTE_START_RE = re.compile(r"^\s*(\(\d+\)|\(\w\)|\*+|†|Note\b|\d+\s)")
 YEAR_RE = re.compile(r"^(19|20)\d{2}$")
 MONTH_RE = re.compile(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)", re.I)
+# Scope of a table's figures: company-wide vs a segment/geographic breakdown. Disambiguates
+# "Total revenues = 713,163" (consolidated) from "Total revenues = 485,599" (a segment).
+_CONSOLIDATED = re.compile(r"\bconsolidated\b|\bcombined\b|\bconsolidating\b", re.I)
+_SEGMENT = re.compile(r"\bsegment\b|\bgeograph|\bregion\b|\breportable\b|\bby\s+(product|service|division)\b", re.I)
 
 
 def clean_text(s: str) -> str:
@@ -134,6 +138,17 @@ def is_number(cell: str) -> bool:
     return bool(c) and bool(NUMBER_RE.fullmatch(c))
 
 
+def _infer_scope(caption: str, section_title: str | None) -> str:
+    """Label a table's figures as company-wide vs a breakdown, from its caption/heading text,
+    so retrieval can tell a consolidated total from a segment total (Known Weakness #3)."""
+    text = (caption + " " + (section_title or "")).lower()
+    if _CONSOLIDATED.search(text):
+        return "Consolidated"
+    if _SEGMENT.search(text):
+        return "Segment-level"
+    return ""
+
+
 def is_period(cell: str) -> bool:
     """A period/date label that belongs in a column header, not a data value."""
     c = cell.strip()
@@ -145,10 +160,11 @@ def is_magnitude(cell: str) -> bool:
     return is_number(cell) and not is_period(cell)
 
 
-def serialize_table(table: Tag) -> dict | None:
+def serialize_table(table: Tag, scope: str = "") -> dict | None:
     """Turn a <table> into a serialized text block + alignment metadata.
 
-    Returns None for layout tables (no numeric cells)."""
+    `scope` ("Consolidated" / "Segment-level" / "") is prepended to every row label so the
+    scope of each figure is visible to retrieval. Returns None for layout tables (no numeric cells)."""
     grid = drop_empty_columns(blank_dollar_signs(expand_grid(table)))
     grid = [r for r in grid if any(c.strip() for c in r)]  # drop fully-empty rows
     if not grid:
@@ -176,6 +192,7 @@ def serialize_table(table: Tag) -> dict | None:
     lines: list[str] = []
     row_value_counts: list[int] = []
     section = ""  # running sub-header label (e.g. "Net sales:")
+    scope_pfx = f"{scope} | " if scope else ""
     for row in body_rows:
         label = row[0].strip() if row else ""
         values = [(i, row[i]) for i in range(1, len(row)) if is_magnitude(row[i])]
@@ -188,7 +205,7 @@ def serialize_table(table: Tag) -> dict | None:
         for ci, val in values:
             col = col_header[ci - 1] if ci - 1 < len(col_header) else ""
             head = f" | {col}" if col else ""
-            lines.append(f"{prefix}{label}{head} = {val}")
+            lines.append(f"{scope_pfx}{prefix}{label}{head} = {val}")
 
     return {
         "lines": lines,
@@ -229,7 +246,8 @@ def parse_filing(html: str, company: str, meta: dict) -> list[dict]:
         if el.name == "table":
             if el.find("table"):  # nested table wrapper: let the inner one be emitted
                 continue
-            ser = serialize_table(el)
+            scope = _infer_scope(caption, cur_title)
+            ser = serialize_table(el, scope)
             if ser is None:
                 continue
             units = find_units(el, caption)

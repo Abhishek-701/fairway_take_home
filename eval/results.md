@@ -1,6 +1,6 @@
 # Eval results
 
-Generated 2026-06-10 - model `claude-sonnet-4-6` - dense-similarity threshold 0.5
+Generated 2026-06-12 - model `claude-sonnet-4-6` - dense-similarity threshold 0.5
 
 Grades are BLANK by design (G4 — fill these in by hand):
 - **correct** = the figure/claim is right
@@ -10,11 +10,11 @@ Grades are BLANK by design (G4 — fill these in by hand):
 | # | cat | question | route | refused | reason | top_sim | citations | gaps | correct | grounded | refusal-correct |
 |---|-----|----------|-------|---------|--------|---------|-----------|------|---------|----------|-----------------|
 | 1 | lookup | What were Coca-Cola's net operating revenues for fiscal year 2024? | single | no |  | 0.756 | KO-0117, KO-0280 |  |  |  |  |
-| 2 | lookup | What were Walmart's total assets at the end of its most recent fiscal year? | single | no |  | 0.678 | WMT-0063, WMT-0185 |  |  |  |  |
-| 3 | comparison | Which of these companies reported the highest total revenue in its most recent fiscal year, and what were the figures? | decompose | no |  | 0.716 | CAT-0114, JPM-0220, KO-0280, NVDA-0062, WMT-0182 | Apple |  |  |  |
+| 2 | lookup | What were Walmart's total assets at the end of its most recent fiscal year? | single | no |  | 0.678 | WMT-0063, WMT-0187 |  |  |  |  |
+| 3 | comparison | Which of these companies reported the highest total revenue in its most recent fiscal year, and what were the figures? | decompose | no |  | 0.721 | CAT-0114, JPM-0220, KO-0280, NVDA-0062, WMT-0071 | Apple |  |  |  |
 | 4 | units | What was Apple's diluted weighted-average share count for fiscal 2025? | single | no |  | 0.694 | AAPL-0059, AAPL-0074 |  |  |  |  |
-| 5 | fiscal_year | Compare Walmart's and Coca-Cola's most recent annual total revenue. What period does each figure cover? | decompose | no |  | 0.656 | KO-0117, WMT-0099 |  |  |  |  |
-| 6 | footnote | What does NVIDIA's most recent 10-K disclose about customer concentration, and what portion of revenue did its largest customer(s) represent? | single | no |  | 0.694 | NVDA-0141, NVDA-0177, NVDA-0178 |  |  |  |  |
+| 5 | fiscal_year | Compare Walmart's and Coca-Cola's most recent annual total revenue. What period does each figure cover? | decompose | no |  | 0.656 | KO-0117, WMT-0101 |  |  |  |  |
+| 6 | footnote | What does NVIDIA's most recent 10-K disclose about customer concentration, and what portion of revenue did its largest customer(s) represent? | single | no |  | 0.694 | NVDA-0141, NVDA-0178 |  |  |  |  |
 | 7 | precision | What was Caterpillar's total sales and revenues, and separately its profit (net income), for 2024? | single | no |  | 0.716 | CAT-0114 |  |  |  |  |
 | 8 | refusal_oos | What was Microsoft's total revenue in its latest fiscal year? | oos | yes | threshold | 0.454 |  |  |  |  |  |
 | 9 | refusal_undisclosed | What is JPMorgan Chase's customer Net Promoter Score (NPS)? | single | no |  | 0.548 |  | JPMorgan Chase |  |  |  |
@@ -31,7 +31,7 @@ Grades are BLANK by design (G4 — fill these in by hand):
 
 **Answer:**
 
-Coca-Cola's net operating revenues for fiscal year 2024 (year ended December 31, 2024) were **$47,061 million** [KO-0117][KO-0280].
+Coca-Cola's net operating revenues for fiscal year 2024 (year ended December 31, 2024) were **$47,061 million** [KO-0117] [KO-0280].
 
 ---
 
@@ -40,38 +40,38 @@ Coca-Cola's net operating revenues for fiscal year 2024 (year ended December 31,
 - **your note:** Balance-sheet lookup â€” confirms the system reads statements beyond the income statement. Record the figure + units.
 - **sub-queries:**
   - WMT: sim=0.678  q="What were Walmart's total assets at the end of its most recent fiscal year?"
-- **citations:** WMT-0063, WMT-0185  |  **gaps:** (none)
+- **citations:** WMT-0063, WMT-0187  |  **gaps:** (none)
 
 **Answer:**
 
-Walmart's total consolidated assets at the end of its most recent fiscal year (January 31, 2026) were **$284,668 million** [WMT-0185][WMT-0063].
+Walmart's total consolidated assets at the end of its most recent fiscal year (January 31, 2026) were **$284,668 million** [WMT-0187][WMT-0063].
 
 ---
 
 ### 3. Which of these companies reported the highest total revenue in its most recent fiscal year, and what were the figures?
-- **category:** comparison  |  **route:** decompose  |  **refused:** False ()  |  **top_sim:** 0.716
+- **category:** comparison  |  **route:** decompose  |  **refused:** False ()  |  **top_sim:** 0.721
 - **your note:** Fans out across all six. A correct answer must also state each company's fiscal-year-end, since the periods are not the same. Fill in the six top-line figures from each Item 8 to grade. Watch terminology: Apple 'net sales', Coca-Cola 'net operating revenues', Caterpillar 'total sales and revenues', JPMorgan 'total net revenue'.
 - **sub-queries:**
   - AAPL: sim=0.646  q="What was Apple's total revenue in its most recent fiscal year as reported in its 10-K?"
-  - JPM: sim=0.716  q="What was JPMorgan Chase's total revenue (net revenue) in its most recent fiscal year as reported in its 10-K?"
+  - JPM: sim=0.721  q="What was JPMorgan Chase's total revenue in its most recent fiscal year as reported in its 10-K?"
   - WMT: sim=0.687  q="What was Walmart's total revenue in its most recent fiscal year as reported in its 10-K?"
-  - KO: sim=0.696  q="What was Coca-Cola's total revenue (net revenues) in its most recent fiscal year as reported in its 10-K?"
-  - NVDA: sim=0.699  q="What was NVIDIA's total revenue in its most recent fiscal year as reported in its 10-K?"
-  - CAT: sim=0.693  q="What was Caterpillar's total revenue (total sales and revenues) in its most recent fiscal year as reported in its 10-K?"
-- **citations:** CAT-0114, JPM-0220, KO-0280, NVDA-0062, WMT-0182  |  **gaps:** Apple
+  - KO: sim=0.666  q="What was Coca-Cola's total revenue in its most recent fiscal year as reported in its 10-K?"
+  - NVDA: sim=0.701  q="What was NVIDIA's total revenue in its most recent fiscal year as reported in its 10-K?"
+  - CAT: sim=0.686  q="What was Caterpillar's total revenue in its most recent fiscal year as reported in its 10-K?"
+- **citations:** CAT-0114, JPM-0220, KO-0280, NVDA-0062, WMT-0071  |  **gaps:** Apple
 
 **Answer:**
 
 Based on the provided filings, here are the most recent fiscal year total revenues for each company:
 
-1. **Walmart** (FY ended January 31, 2026): Total revenues of **$485,599 million** [WMT-0182]
-2. **NVIDIA** (FY ended January 25, 2026): Total revenue of **$215,938 million** [NVDA-0062]
-3. **Caterpillar** (FY ended December 31, 2025): Total sales and revenues of **$67,589 million** [CAT-0114]
-4. **Coca-Cola** (FY ended December 31, 2025): Net operating revenues of **$47,941 million** [KO-0280]
-5. **Apple** (FY ended September 27, 2025): Not found in the provided filings for Apple as a single consolidated revenue total.
-6. **JPMorgan Chase** (FY ended December 31, 2025): Total net revenue of **$185,581 million** [JPM-0220]
+- **NVIDIA** (FY ended Jan 26, 2026): **$215,938 million** [NVDA-0062]
+- **Walmart** (FY ended Jan 31, 2026): Net sales increased $31.9 billion or 4.7% [WMT-0071]; total revenues increased $32.2 billion or 4.7% — the exact total revenue figure is not directly stated in a single line in the provided chunks, but net sales figures are referenced
+- **JPMorgan Chase** (FY ended Dec 31, 2025): Total net revenue **$185,581 million** [JPM-0220]
+- **Apple** (FY ended Sep 27, 2025): Not found as a single consolidated total revenue figure in the provided filings
+- **Coca-Cola** (FY ended Dec 31, 2025): Net operating revenues **$47,941 million** [KO-0280]
+- **Caterpillar** (FY ended Dec 31, 2025): Total sales and revenues **$67,589 million** [CAT-0114]
 
-**Walmart reported the highest total revenue** among the companies with available figures, at **$485,599 million** for its fiscal year ended January 31, 2026 [WMT-0182].
+**NVIDIA reported the highest total revenue among the companies with clearly stated figures, at $215,938 million for its fiscal year ended January 26, 2026** [NVDA-0062]. This surpasses JPMorgan Chase's $185,581 million [JPM-0220], Caterpillar's $67,589 million [CAT-0114], Coca-Cola's $47,941 million [KO-0280], and the other companies in the provided context.
 
 ---
 
@@ -94,28 +94,26 @@ Apple's diluted weighted-average share count for fiscal 2025 was **15,004,697 th
 - **sub-queries:**
   - WMT: sim=0.656  q="What was Walmart's most recent annual total revenue, and what fiscal period does this figure cover?"
   - KO: sim=0.654  q="What was Coca-Cola's most recent annual total revenue, and what fiscal period does this figure cover?"
-- **citations:** KO-0117, WMT-0099  |  **gaps:** (none)
+- **citations:** KO-0117, WMT-0101  |  **gaps:** (none)
 
 **Answer:**
 
-## Revenue Comparison: Walmart vs. Coca-Cola (Most Recent Annual Figures)
+## Total Revenue Comparison: Walmart vs. Coca-Cola
 
-**Walmart**
-- **Total Revenues: $713,163 million** for the fiscal year ended **January 31, 2026** [WMT-0099]
+### Walmart
+- **Total Revenues: $713,163 million** for the fiscal year ended **January 31, 2026** [WMT-0101]
 
-**Coca-Cola**
-- **Net Operating Revenues: $47,941 million** for the fiscal year ended **December 31, 2025** [KO-0117]
-
----
+### Coca-Cola
+- **Net Operating Revenues: $47,941 million** for the year ended **December 31, 2025** [KO-0117]
 
 ### Summary
 
-| Company | Most Recent Revenue | Fiscal Year End |
+| Company | Most Recent Annual Revenue | Period Covered |
 |---|---|---|
-| Walmart | $713,163 million | January 31, 2026 |
-| Coca-Cola | $47,941 million | December 31, 2025 |
+| Walmart | $713,163 million | Fiscal year ended January 31, 2026 |
+| Coca-Cola | $47,941 million | Year ended December 31, 2025 |
 
-Walmart's total revenues are approximately **14.9× larger** than Coca-Cola's net operating revenues. Note that the two figures are not perfectly comparable in timing (Walmart's fiscal year ends in late January, Coca-Cola's in December) and also differ in business model — Walmart reports retail sales plus membership/other income, while Coca-Cola reports net operating revenues from beverage concentrate and finished product operations.
+Walmart's total revenues are approximately **14.9× larger** than Coca-Cola's net operating revenues. Note that the two companies have different fiscal year-end dates (Walmart ends in January; Coca-Cola ends in December), and the revenue line items are labeled differently (Walmart uses "Total revenues" while Coca-Cola uses "Net operating revenues").
 
 ---
 
@@ -124,30 +122,37 @@ Walmart's total revenues are approximately **14.9× larger** than Coca-Cola's ne
 - **your note:** Note/MD&A-driven (concentration of revenue, significant customers). The percentage is meaningless without the surrounding disclosure. VERIFY the exact wording/figure exists in NVIDIA's filing; if phrased differently (e.g. 'one customer accounted for ~X%'), match it. Tests whether the system surfaces the qualifier, not just a bare number.
 - **sub-queries:**
   - NVDA: sim=0.694  q="What does NVIDIA's most recent 10-K disclose about customer concentration, and what portion of revenue did its largest customer(s) represent?"
-- **citations:** NVDA-0141, NVDA-0177, NVDA-0178  |  **gaps:** (none)
+- **citations:** NVDA-0141, NVDA-0178  |  **gaps:** (none)
 
 **Answer:**
 
 ## NVIDIA Customer Concentration Disclosure (Fiscal Year 2026, ended January 25, 2026)
 
-### Revenue Concentration
+### Revenue Concentration – Direct Customers
 
-NVIDIA's most recent 10-K discloses significant customer concentration risk, noting that "revenue is concentrated among a limited number of direct and indirect customers and this trend may continue" [NVDA-0178].
+NVIDIA's most recent 10-K discloses significant concentration among a limited number of direct and indirect customers, with the following specifics for **fiscal year 2026**:
 
-**Direct Customer Revenue Concentration for Fiscal Year 2026:**
-- **Largest direct customer:** represented **22% of total revenue**
-- **Second largest direct customer:** represented **14% of total revenue**
-- Both were primarily attributable to the **Compute & Networking segment** [NVDA-0178]
+- **Largest direct customer**: Sales represented **22% of total revenue**, primarily attributable to the Compute & Networking segment [NVDA-0178].
+- **Second largest direct customer**: Sales represented **14% of total revenue**, also primarily attributable to the Compute & Networking segment [NVDA-0178].
 
-For context, in fiscal year 2025, one direct customer represented 12% and two others each represented 11% of total revenue; in fiscal year 2024, one direct customer represented 13% of total revenue [NVDA-0178].
+For context, in **fiscal year 2025**:
+- One direct customer represented **12%** of total revenue.
+- Two other direct customers each represented **11%** of total revenue [NVDA-0178].
+
+In **fiscal year 2024**:
+- One direct customer represented **13%** of total revenue [NVDA-0178].
 
 ### Accounts Receivable Concentration
 
-As of January 25, 2026, **three direct customers** accounted for **25%, 18%, and 13%** of NVIDIA's accounts receivable balance, respectively [NVDA-0141].
+As of January 25, 2026, **three direct customers** accounted for **25%, 18%, and 13%** of NVIDIA's accounts receivable balance [NVDA-0141].
 
-### Geographic Revenue Concentration
+### Geographic Concentration
 
-Revenue from customers headquartered **outside the United States** accounted for only **31%** of total revenue in fiscal year 2026 (down from 41% in FY2025 and 48% in FY2024), reflecting increasing U.S.-based Compute & Networking demand [NVDA-0178]. Total revenue for fiscal year 2026 was **$215,938 million**, with **$149,617 million** from U.S.-headquartered customers [NVDA-0177].
+Revenue from customers headquartered **outside the United States** accounted for **31%** of total revenue in fiscal year 2026 (down from 41% in FY2025 and 48% in FY2024), reflecting growing U.S.-based Compute & Networking demand [NVDA-0178].
+
+### Management's Note
+
+NVIDIA explicitly acknowledges that "revenue is concentrated among a limited number of direct and indirect customers and this trend may continue" [NVDA-0178].
 
 ---
 
@@ -160,11 +165,12 @@ Revenue from customers headquartered **outside the United States** accounted for
 
 **Answer:**
 
-Based on the provided filings (fiscal year ending December 31, 2024):
+Based on the provided filings:
 
-- **Total Sales and Revenues (2024):** $64,809 million [CAT-0114]
+**Caterpillar's 2024 figures (fiscal year ending December 31, 2024):**
 
-- **Profit (Net Income) attributable to Caterpillar (2024):** The filings report "Profit of consolidated and affiliated companies" of **$10,788 million** in 2024 [CAT-0114]. (Note: This represents profit of consolidated and affiliated companies; a separate minority interest breakdown is not provided in the excerpts above.)
+- **Total Sales and Revenues:** $64,809 million [CAT-0114]
+- **Profit (Net Income):** The filing reports "Profit of consolidated and affiliated companies" of **$10,788 million** for 2024 [CAT-0114], which represents the bottom-line profit figure (after equity in profit of unconsolidated affiliated companies of $44 million added to profit of consolidated companies of $10,744 million).
 
 ---
 
