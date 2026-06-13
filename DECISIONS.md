@@ -3,6 +3,7 @@
 Updated as choices are made (guardrail G7), not batched at the end.
 
 ## Architecture (locked, from PLAN_2.md)
+
 - Stack: Python 3.11+, FastAPI, single static HTML/JS page (no React, no build step).
 - Vector store: Chroma (local, persisted). BM25: `rank_bm25`.
 - Embeddings: OpenAI `text-embedding-3-small` (Anthropic has no embeddings API).
@@ -12,96 +13,104 @@ Updated as choices are made (guardrail G7), not batched at the end.
 - Refusal: two distinct gates (out-of-corpus threshold on normalized dense similarity; in-corpus-undisclosed via synthesis/gaps).
 
 ### Phase 3 — chat model choice (2026-06-10)
+
 - Chat model = `claude-sonnet-4-6` (NOT Opus 4.8). Reason: the spec mandates temperature 0
-  everywhere for determinism (G5). Opus 4.8/4.7 REMOVED the `temperature` parameter — passing
-  it returns HTTP 400 — so temp-0 determinism is impossible on Opus. Sonnet 4.6 still accepts
-  `temperature=0`, is well-suited to this extractive decomposition+synthesis task, and is
-  cheaper ($3/$15 per 1M vs $5/$25). Decomposition uses structured JSON output
-  (`output_config.format`, json_schema); synthesis streams via `messages.stream()`.
+everywhere for determinism (G5). Opus 4.8/4.7 REMOVED the `temperature` parameter — passing
+it returns HTTP 400 — so temp-0 determinism is impossible on Opus. Sonnet 4.6 still accepts
+`temperature=0`, is well-suited to this extractive decomposition+synthesis task, and is
+cheaper ($3/$15 per 1M vs $5/$25). Decomposition uses structured JSON output
+(`output_config.format`, json_schema); synthesis streams via `messages.stream()`.
 
 ## Dependencies (G2 — one line each)
+
 See requirements.txt; each line carries its justification.
 
 ## Decision log
+
 - 2026-06-10: Fetch ALL SIX filings from EDGAR through one clean path (incl. Apple), rather
-  than using a viewer-saved Apple file. Reason: provided file was unavailable; uniform path
-  is simpler and the CSS-residue stripping in parse.py is built defensively regardless.
+than using a viewer-saved Apple file. Reason: provided file was unavailable; uniform path
+is simpler and the CSS-residue stripping in parse.py is built defensively regardless.
 - 2026-06-10: Chat LLM = Anthropic (Claude); embeddings = OpenAI. Two keys: Claude has no
-  embeddings API, so dense retrieval needs OpenAI text-embedding-3-small.
-- 2026-06-10: EDGAR User-Agent = "Abhishek <walvekarabhishek701@gmail.com>" per SEC fair-access policy.
+embeddings API, so dense retrieval needs OpenAI text-embedding-3-small.
+- 2026-06-10: EDGAR User-Agent = "Abhishek [walvekarabhishek701@gmail.com](mailto:walvekarabhishek701@gmail.com)" per SEC fair-access policy.
 - 2026-06-10: BLOCKER (Phase 3): chromadb pulls native chroma-hnswlib, which has no prebuilt
-  wheel for Python 3.13 on Windows -> source build fails (needs MSVC C++ build tools). Phase 2
-  needs no vector store, so deferred. RESOLVED: chromadb 1.5.9 ships prebuilt cp313 Windows
-  wheels (no C++ build needed); repinned 0.5.23 -> 1.5.9. Verified `import chromadb` works.
-- 2026-06-10: EDGAR-fetched files are CLEAN (0 <style>/<script>, minimal css- noise) — unlike
-  the viewer-saved Apple copy the plan referenced. CSS-residue stripping kept defensively.
-  Files ARE Inline XBRL: ix:nonFraction tags present (NVDA ~1127) carrying value/scale/unit/
-  period — available for the optional headline-figure cross-check.
+wheel for Python 3.13 on Windows -> source build fails (needs MSVC C++build tools). Phase 2
+needs no vector store, so deferred. RESOLVED: chromadb 1.5.9 ships prebuilt cp313 Windows
+wheels (no C++ build needed); repinned 0.5.23 -> 1.5.9. Verified `import chromadb` works.
+- 2026-06-10: EDGAR-fetched files are CLEAN (0 /, minimal css- noise) — unlike
+the viewer-saved Apple copy the plan referenced. CSS-residue stripping kept defensively.
+Files ARE Inline XBRL: ix:nonFraction tags present (NVDA ~1127) carrying value/scale/unit/
+period — available for the optional headline-figure cross-check.
 
 ### Phase 2 — parse/chunk/validate (2026-06-10)
-- Walk the doc as ordered leaf-<div> + <table> blocks (SEC wraps each line in its own div).
-- Item headings: regex `^Item N.` at position 0, NOT inside <a> (kills TOC links + "refer to
-  Item 1A" cross-refs), short block. Detected on any div (not just leaf — WMT nests its
-  headings) and deduped by item number so an outer wrapper + inner copy don't double-emit.
+
+- Walk the doc as ordered leaf- +  blocks (SEC wraps each line in its own div).
+- Item headings: regex `^Item N.` at position 0, NOT inside  (kills TOC links + "refer to
+Item 1A" cross-refs), short block. Detected on any div (not just leaf — WMT nests its
+headings) and deduped by item number so an outer wrapper + inner copy don't double-emit.
 - Tables: expand colspan/rowspan into a dense grid; BLANK `$`/`%` marker cells in place (then
-  drop all-empty columns) so every row keeps the same width and values stay aligned to headers
-  — removing `$` per-row was the bug that drifted numbers off their year. Header zone = leading
-  rows with no *magnitude* cell; years/dates are periods (kept as headers), not values. Each
-  data row serialized self-contained: "section | label | <col header> = <value>". Accounting
-  negatives (1,234) -> -1234. Layout tables (no magnitude cells) skipped. Units read from the
-  table text + the caption line just above (SEC puts "(In millions)" there).
+drop all-empty columns) so every row keeps the same width and values stay aligned to headers
+— removing `$` per-row was the bug that drifted numbers off their year. Header zone = leading
+rows with no *magnitude* cell; years/dates are periods (kept as headers), not values. Each
+data row serialized self-contained: "section | label |  = ". Accounting
+negatives (1,234) -> -1234. Layout tables (no magnitude cells) skipped. Units read from the
+table text + the caption line just above (SEC puts "(In millions)" there).
 - Footnotes immediately following a table are appended to that table's block as "[footnote] ...".
 - Chunking: prose ~800 tokens / 100 overlap (tiktoken cl100k_base), flushed at Item boundaries
-  so chunks never straddle Items. Tables kept whole; tables >1000 tokens split by rows with the
-  header line repeated on each piece. chunk_id = "{TICKER}-{NNNN}". 2419 chunks total.
+so chunks never straddle Items. Tables kept whole; tables >1000 tokens split by rows with the
+header line repeated on each piece. chunk_id = "{TICKER}-{NNNN}". 2419 chunks total.
 - validate.py is a REPORT (warns, never blocks): (a) Items 1/1A/7/8 present, (b) revenue term in
-  a numeric table, (c) CSS/JS residue, (d) irregular-row-width tables (precision heuristic:
-  flag when the modal row width covers <60% of rows = likely multi-level drift), (e) prints the
-  largest table per company + 2 seeded-random table chunks. Spot-checked headline figures by
-  hand: AAPL total net sales 416,161; WMT total revenues 713,163; NVDA revenue 215,938 — all
-  correct and bound to the right fiscal year.
+a numeric table, (c) CSS/JS residue, (d) irregular-row-width tables (precision heuristic:
+flag when the modal row width covers <60% of rows = likely multi-level drift), (e) prints the
+largest table per company + 2 seeded-random table chunks. Spot-checked headline figures by
+hand: AAPL total net sales 416,161; WMT total revenues 713,163; NVDA revenue 215,938 — all
+correct and bound to the right fiscal year.
 
 ### Phase 3 — retrieval, gates, threshold calibration (2026-06-10)
+
 - Hybrid retrieval = BM25 (rank_bm25, over all chunks) + dense (OpenAI embeddings in Chroma,
-  cosine) fused with reciprocal rank fusion (RRF_K=60). Company metadata filter on the dense
-  side via Chroma `where`, on the sparse side by post-filtering. top-k 6 single / 4 per sub-query.
+cosine) fused with reciprocal rank fusion (RRF_K=60). Company metadata filter on the dense
+side via Chroma `where`, on the sparse side by post-filtering. top-k 6 single / 4 per sub-query.
 - Refusal gate 1 (out-of-corpus) sits on the NORMALIZED dense cosine similarity of the top chunk,
-  NOT the RRF score (RRF is rank-based, no absolute meaning).
+NOT the RRF score (RRF is rank-based, no absolute meaning).
 - Threshold provisionally calibrated to 0.50 from the four Phase-3 checkpoint probes:
-    NVIDIA revenue 0.697 | R&D sub-queries 0.61-0.71 | Coca-Cola attrition 0.518 (in-corpus,
-    undisclosed) | Tesla revenue 0.487 (out-of-corpus).
-  0.50 sits between Tesla (out) and KO-attrition (in), so Tesla refuses via the THRESHOLD gate
-  and KO-attrition passes the threshold then refuses via the SYNTHESIS/gaps gate — the two-gate
-  design. Margin is thin (~0.015 each side) — Known Weakness #5; Phase 6 refines with the user's
-  eval probes (per-query-type thresholds are the next-week fix).
+  NVIDIA revenue 0.697 | R&D sub-queries 0.61-0.71 | Coca-Cola attrition 0.518 (in-corpus,
+  undisclosed) | Tesla revenue 0.487 (out-of-corpus).
+0.50 sits between Tesla (out) and KO-attrition (in), so Tesla refuses via the THRESHOLD gate
+and KO-attrition passes the threshold then refuses via the SYNTHESIS/gaps gate — the two-gate
+design. Margin is thin (~0.015 each side) — Known Weakness #5; Phase 6 refines with the user's
+eval probes (per-query-type thresholds are the next-week fix).
 - anthropic SDK upgraded 0.42.0 -> 0.109.1: 0.42 predates `output_config` (structured JSON output
-  used for decomposition). Verified the four checkpoint questions behave per spec after upgrade.
+used for decomposition). Verified the four checkpoint questions behave per spec after upgrade.
 
 ### Phase 3/2 fix — table caption in chunk text (2026-06-10, found via manual test)
+
 - Bug: "net sales by region for Apple" returned a false "not found" — the segment-table chunk
-  was parsed correctly but unretrievable: its searchable text carried only the generic Item
-  heading (no "segment"/"region"), so BM25+dense ranked product-table/MD&A prose above it and
-  it fell outside top-k. System did NOT hallucinate (refused on bad context) — a retrieval miss.
+was parsed correctly but unretrievable: its searchable text carried only the generic Item
+heading (no "segment"/"region"), so BM25+dense ranked product-table/MD&A prose above it and
+it fell outside top-k. System did NOT hallucinate (refused on bad context) — a retrieval miss.
 - Fix: parse.py now prepends each table's caption (the prose line just above it, e.g. "The
-  following table shows net sales by reportable segment...") to the table chunk's header, making
-  tables retrievable by description. Re-ingested (2419 -> 2427 chunks). Verified the exact query
-  now returns Americas 178,353 / Europe 111,032 / Greater China 64,377 / Japan 28,703 / Rest of
-  Asia Pacific 33,696 / Total 416,161, matching the filing. Four checkpoint questions: no regression.
+following table shows net sales by reportable segment...") to the table chunk's header, making
+tables retrievable by description. Re-ingested (2419 -> 2427 chunks). Verified the exact query
+now returns Americas 178,353 / Europe 111,032 / Greater China 64,377 / Japan 28,703 / Rest of
+Asia Pacific 33,696 / Total 416,161, matching the filing. Four checkpoint questions: no regression.
 - Side effect: re-embedding shifted KO-attrition probe 0.518 -> 0.503 (still > 0.50). Threshold
-  margin is now razor-thin — reinforces Known Weakness #5; Phase 6 calibration with more probes.
+margin is now razor-thin — reinforces Known Weakness #5; Phase 6 calibration with more probes.
 
 ### Eval-driven failures and fixes (2026-06-10) — what broke, then how it was fixed
+
 The 9-question eval caught two real correctness failures (both in decomposed comparisons):
 
 WHAT BROKE
+
 - Q3 "which company had the highest total revenue": concluded **JPMorgan ($185,581M)** — WRONG
-  (Walmart ~$713B is highest). Under decomposition the consolidated income-statement chunks for
-  Apple/Walmart/Coca-Cola/JPM were not retrieved (top-k=4), so the model maxed over the few it had.
+(Walmart ~$713B is highest). Under decomposition the consolidated income-statement chunks for
+Apple/Walmart/Coca-Cola/JPM were not retrieved (top-k=4), so the model maxed over the few it had.
 - Q5 "compare Walmart vs Coca-Cola revenue": returned Walmart **$485,599M** — WRONG; that is the
-  Walmart **U.S. segment** total (chunk WMT-0182), not the **consolidated** $713,163M (WMT-0069/0099).
-  Right terminology ("Total revenues"), wrong scope — Known Weakness #3.
+Walmart **U.S. segment** total (chunk WMT-0182), not the **consolidated** $713,163M (WMT-0069/0099).
+Right terminology ("Total revenues"), wrong scope — Known Weakness #3.
 - Note: the system did NOT hallucinate. Q3 honestly hedged ("among companies with available
-  figures"); Q5 pulled a real-but-wrong-scope line. The defect was retrieval, not grounding.
+figures"); Q5 pulled a real-but-wrong-scope line. The defect was retrieval, not grounding.
 
 FIX 1 — top_k_sub 4->8 + synthesis "prefer consolidated, label segment as segment-level".
   Partial: Q3 now retrieves Apple's $416,161M, but the consolidated income-statement chunk still
@@ -109,25 +118,27 @@ FIX 1 — top_k_sub 4->8 + synthesis "prefer consolidated, label segment as segm
 
 FIX 2 — Phase 5 cross-encoder reranker (ms-marco-MiniLM-L-6-v2) over the top-30 fused candidates,
   toggleable via config.USE_RERANKER.
-  - Q5: FIXED. Reranker pulls WMT-0099 (consolidated $713,163M) into context; answer now reports
-    $713,163M with the correct period. No regressions on the other 8 (refusals + lookups intact).
-  - Q3: STILL WRONG figure. The cross-encoder is phrasing-sensitive — for Q5's wording it surfaced
-    the consolidated chunk, for Q3's wording it surfaced the segment chunk (WMT-0182, $485,599M)
-    again. Both chunks literally say "Total revenues", so neither retrieval nor reranking reliably
-    distinguishes the U.S.-segment total from the company total.
+
+- Q5: FIXED. Reranker pulls WMT-0099 (consolidated $713,163M) into context; answer now reports
+$713,163M with the correct period. No regressions on the other 8 (refusals + lookups intact).
+- Q3: STILL WRONG figure. The cross-encoder is phrasing-sensitive — for Q5's wording it surfaced
+the consolidated chunk, for Q3's wording it surfaced the segment chunk (WMT-0182, $485,599M)
+again. Both chunks literally say "Total revenues", so neither retrieval nor reranking reliably
+distinguishes the U.S.-segment total from the company total.
 
 FIX 3 — Scope label at parse time (parse.py `_infer_scope`): prepend "Consolidated" / "Segment-level"
 to every table row, inferred from the table caption/section ("consolidated"/"combined" vs
 "segment"/"geographic"/"reportable"). Rows now read `Consolidated | Total revenues ... = 713,163`
 vs `Segment-level | Total revenues ... = 485,599`, putting the scope in the text where retrieval,
 rerank, and synthesis can all see it. Re-ingested (2440 chunks).
-  - Q5: still CORRECT, and now robust — the consolidated figure wins, the segment figure is clearly
-    labeled segment-level so it can't masquerade as the company total. Concept-mislabel fixed.
-  - Q3: STILL WRONG ("NVIDIA highest $215,938M"), but the cause has MOVED. The consolidated chunk
-    WMT-0101 now retrieves at rank ~8 in Walmart's sub-query (was ~17-30), but in the six-company
-    fan-out the global 24-chunk context cap (MAX_CONTEXT_CHUNKS, sorted by fused score) trims that
-    low-ranked chunk before synthesis sees it. So Q3 is now a context-BUDGET / recall problem, not a
-    concept error.
+
+- Q5: still CORRECT, and now robust — the consolidated figure wins, the segment figure is clearly
+labeled segment-level so it can't masquerade as the company total. Concept-mislabel fixed.
+- Q3: STILL WRONG ("NVIDIA highest $215,938M"), but the cause has MOVED. The consolidated chunk
+WMT-0101 now retrieves at rank ~8 in Walmart's sub-query (was ~17-30), but in the six-company
+fan-out the global 24-chunk context cap (MAX_CONTEXT_CHUNKS, sorted by fused score) trims that
+low-ranked chunk before synthesis sees it. So Q3 is now a context-BUDGET / recall problem, not a
+concept error.
 
 HONEST RESIDUAL: Q3 multi-company comparison still misses Walmart's (and Apple's) consolidated total.
 Root cause is now the global context cap trimming a company's best table chunk when it ranks low
@@ -138,75 +149,99 @@ fixes for numeric fidelity remain as before: XBRL/companyfacts cross-check (Know
 table-aware chunking, concept-level checks. Reranker left ON (net positive, no regressions) but it
 pulls a heavy torch dependency and is fully toggleable.
 
+### Expanded eval — 20 questions (2026-06-13)
+Grew the hand-written set from 9 to 20 (brief asks 10-20), adding year-over-year, segment-lookup,
+computed-metric, semantic/Item-1A, alias, router-clarify, router-edge, multi-statement, and two
+more refusal probes. New findings (honest; no code changed — write-up/eval pass only):
+- WINS: scope label validated both directions — Sam's Club query correctly returns the SEGMENT
+  figure ($93,015M, labeled segment-level) without the "prefer consolidated" rule overriding it;
+  Q8 now labels Walmart's $485,599M as segment-level instead of mis-claiming consolidated. All
+  refusal probes safe (Amazon, Apple-engagement, CAT-NPS — no fabrication); clarify + alias routing correct.
+- NEW ROUTER BUG (Weakness #4, concrete): "most recent" contains "most", which trips SUPERLATIVE_RE,
+  so "What was Amazon's net income for its most recent fiscal year?" routes to DECOMPOSE (all six)
+  instead of OOS. Outcome was still safe (refused, gaps=all six), but the mechanism is wrong. Cheap
+  fix: don't let "most" match inside "most recent", or evaluate the out-of-corpus-entity branch
+  before the superlative branch in router.route().
+- RECALL UNDER DECOMPOSITION persists (same family as the original Q3): "lowest total revenue"
+  missed Coca-Cola's revenue line; "highest operating income" missed Apple's. Real fix is XBRL for
+  numbers + better Item-1A semantic recall — unchanged from the next-week list.
+
 ### Phase 6 — eval harness (2026-06-10)
+
 - eval/run_eval.py runs each question in eval/questions.yaml through the pipeline and writes
-  eval/results.md: a table (route, refused, refusal reason, top_sim, citations, gaps) with BLANK
-  grade columns (correct / grounded / refusal-correct) plus a full-answers section. Per G4 it does
-  NOT auto-grade and does NOT author questions; questions.yaml ships as a template for the user.
+eval/results.md: a table (route, refused, refusal reason, top_sim, citations, gaps) with BLANK
+grade columns (correct / grounded / refusal-correct) plus a full-answers section. Per G4 it does
+NOT auto-grade and does NOT author questions; questions.yaml ships as a template for the user.
 - top_sim is recorded per question so refusal probes feed threshold calibration (Known Weakness #5).
 - Smoke-tested on one answerable + one refusal question (both row types render correctly).
 
 ### Phase 4 — frontend (2026-06-10)
+
 - Single static page (static/index.html), vanilla JS, no build step. FastAPI serves it at `/`
-  and streams answers from `GET /api/stream?q=` via SSE (EventSource). Two event types: `token`
-  (incremental answer text) and `done` (citations + gaps). Citations render as expandable
-  <details> passages labeled company + section. Refusals stream as a single token + done.
+and streams answers from `GET /api/stream?q=` via SSE (EventSource). Two event types: `token`
+(incremental answer text) and `done` (citations + gaps). Citations render as expandable
+  passages labeled company + section. Refusals stream as a single token + done.
 - Verified at the protocol level: page serves, NVIDIA streams + cites NVDA-0179 (contains
-  "Total revenue = 215,938"), Tesla refuses via threshold.
+"Total revenue = 215,938"), Tesla refuses via threshold.
 
 ## Filings used (Phase 1, fetched 2026-06-10 from EDGAR)
-| Ticker | Company | Form | Accession | Filed | Fiscal period end (from doc name) |
-|--------|---------|------|-----------|-------|-----------------------------------|
-| AAPL | Apple | 10-K | 0000320193-25-000079 | 2025-10-31 | 2025-09-27 |
-| JPM  | JPMorgan Chase | 10-K | 0001628280-26-008131 | 2026-02-13 | 2025-12-31 |
-| WMT  | Walmart | 10-K | 0000104169-26-000055 | 2026-03-13 | 2026-01-31 |
-| KO   | Coca-Cola | 10-K | 0001628280-26-010047 | 2026-02-20 | 2025-12-31 |
-| NVDA | NVIDIA | 10-K | 0001045810-26-000021 | 2026-02-25 | 2026-01-25 |
-| CAT  | Caterpillar | 10-K | 0000018230-26-000008 | 2026-02-13 | 2025-12-31 |
+
+
+| Ticker | Company        | Form | Accession            | Filed      | Fiscal period end (from doc name) |
+| ------ | -------------- | ---- | -------------------- | ---------- | --------------------------------- |
+| AAPL   | Apple          | 10-K | 0000320193-25-000079 | 2025-10-31 | 2025-09-27                        |
+| JPM    | JPMorgan Chase | 10-K | 0001628280-26-008131 | 2026-02-13 | 2025-12-31                        |
+| WMT    | Walmart        | 10-K | 0000104169-26-000055 | 2026-03-13 | 2026-01-31                        |
+| KO     | Coca-Cola      | 10-K | 0001628280-26-010047 | 2026-02-20 | 2025-12-31                        |
+| NVDA   | NVIDIA         | 10-K | 0001045810-26-000021 | 2026-02-25 | 2026-01-25                        |
+| CAT    | Caterpillar    | 10-K | 0000018230-26-000008 | 2026-02-13 | 2025-12-31                        |
+
 
 All exact form "10-K" (no 10-K/A amendments). Note the differing fiscal year ends (Apple
 Sep, NVDA/WMT Jan, others Dec) — this matters for cross-company comparisons (Phase 6 eval).
 
 ## Key design tradeoffs (the "why", summarized)
+
 - **Pipeline, not agent.** A closed six-doc corpus does not need an agent. A deterministic pipeline
-  (router → [decompose] → retrieve → gate → synthesize) is fully debuggable and reproducible; an
-  agent would add nondeterminism and debugging surface for no benefit here. Cost: no autonomous
-  recovery from a bad retrieval — but that is exactly what the eval + manual grading expose.
+(router → [decompose] → retrieve → gate → synthesize) is fully debuggable and reproducible; an
+agent would add nondeterminism and debugging surface for no benefit here. Cost: no autonomous
+recovery from a bad retrieval — but that is exactly what the eval + manual grading expose.
 - **Regex/alias router, not an LLM router.** Chosen for full explainability and determinism (G5):
-  the same question always routes the same way and I can explain every branch in a walkthrough.
-  Cost: brittle on unlisted aliases and unusual phrasing (Known Weakness #4). A temp-0 LLM router
-  is the first next-week item.
+the same question always routes the same way and I can explain every branch in a walkthrough.
+Cost: brittle on unlisted aliases and unusual phrasing (Known Weakness #4). A temp-0 LLM router
+is the first next-week item.
 - **Two-gate refusal, not one.** (1) Out-of-corpus is caught by a threshold on the normalized dense
-  similarity of the top chunk (NOT the RRF score, which is rank-based and has no absolute meaning).
-  (2) In-corpus-but-undisclosed is caught by the synthesis prompt (context-only) + a per-company
-  `gaps` list — retrieval returns good-scoring company chunks that lack the figure, so the threshold
-  cannot catch it. Verified: Tesla/Microsoft refuse via gate 1; Coca-Cola attrition / JPMorgan NPS
-  refuse via gate 2.
+similarity of the top chunk (NOT the RRF score, which is rank-based and has no absolute meaning).
+(2) In-corpus-but-undisclosed is caught by the synthesis prompt (context-only) + a per-company
+`gaps` list — retrieval returns good-scoring company chunks that lack the figure, so the threshold
+cannot catch it. Verified: Tesla/Microsoft refuse via gate 1; Coca-Cola attrition / JPMorgan NPS
+refuse via gate 2.
 - **Embeddings on OpenAI, chat on Anthropic.** Anthropic has no embeddings API; dense retrieval
-  needs `text-embedding-3-small`. Chat is Sonnet 4.6 (temp-0 capable; Opus 4.8 removed `temperature`).
+needs `text-embedding-3-small`. Chat is Sonnet 4.6 (temp-0 capable; Opus 4.8 removed `temperature`).
 - **Chunking:** ~800-token prose windows flushed at Item boundaries; tables kept whole and serialized
-  row-wise so each value carries its compound column header (number can't drift from its year).
+row-wise so each value carries its compound column header (number can't drift from its year).
 
 ## Known weaknesses (state these plainly; claim only what was built and run)
+
 1. **Numeric fidelity inside complex tables is the top weakness.** Multi-level headers, per-column
-   units, and accounting negatives are handled, but verified by sampling + an alignment check, not
+  units, and accounting negatives are handled, but verified by sampling + an alignment check, not
    exhaustively. A misaligned or unusually structured table can still yield a confidently wrong
    number. Fix: XBRL cross-check of headline figures against the `<ix:nonFraction>` facts in the
    same files (the files are Inline XBRL; tags are present, e.g. ~1127 in NVDA).
 2. **Footnote linkage is local, not global.** Footnotes immediately following a table ride along in
-   its chunk and in-table markers are preserved as `[fn1]`, but there is no reference graph linking
+  its chunk and in-table markers are preserved as `[fn1]`, but there is no reference graph linking
    an arbitrary marker to its note text. A figure whose qualifier lives elsewhere can be returned
    unqualified. Fix: build the marker→note graph and attach the resolved note to the citing chunk.
 3. **Grounds on terminology, does not understand accounting.** Demonstrated live by eval Q3/Q5: the
-   system reported Walmart's **U.S.-segment** "Total revenues" ($485,599M) as the **consolidated**
+  system reported Walmart's **U.S.-segment** "Total revenues" ($485,599M) as the **consolidated**
    total ($713,163M) — right term, wrong scope/concept. Per-figure citations make every answer
    auditable by a human, but the system will not self-catch this. Fix: label segment-table rows with
    the segment name at parse time; XBRL cross-check; concept-level checks / tighter retrieval on
    near-miss line items.
 4. **Router brittleness.** Regex routing mis-handles unlisted aliases and unusual phrasing — a
-   deliberate trade for explainability and determinism. Fix: a temp-0 LLM router.
+  deliberate trade for explainability and determinism. Fix: a temp-0 LLM router.
 5. **Refusal threshold calibrated on a handful of probes.** A single global value on a normalized-
-   dense-similarity scale is not optimal across query types, and the margin is thin (Tesla 0.48 /
+  dense-similarity scale is not optimal across query types, and the margin is thin (Tesla 0.48 /
    Microsoft 0.454 out vs Coca-Cola-attrition 0.503 / JPMorgan-NPS 0.548 in — ~0.003 in one case).
    Fix: per-query-type thresholds, or a cross-encoder relevance score for the gate.
 
@@ -214,11 +249,13 @@ One-line summary for the room: **strong on retrieval and honesty, weaker on nume
 complex tables (esp. segment-vs-consolidated), and here is exactly how I would close that gap.**
 
 ## Next week (in priority order)
+
 1. **Temp-0 LLM router** for alias/phrasing robustness (closes Weakness #4).
 2. **XBRL / companyfacts cross-check** of headline figures against the tagged consolidated facts
-   (closes much of #1 and #3 — the segment-vs-consolidated error).
+  (closes much of #1 and #3 — the segment-vs-consolidated error).
 3. **Label segment-table rows with the segment name** at parse time so segment totals can't
-   masquerade as company totals (#3).
+  masquerade as company totals (#3).
 4. **Contextual / table-aware chunking** and a marker→footnote reference graph (#1, #2).
 5. **Per-query-type threshold calibration**, or move the gate onto the cross-encoder score (#5).
 6. **Harden the reranker** (it's phrasing-sensitive today) or try a finance-tuned cross-encoder.
+

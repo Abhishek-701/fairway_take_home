@@ -1,82 +1,230 @@
 # Eval questions — YOU write these (guardrail G4: the runner must not author or grade them).
-# Replace every PLACEHOLDER below with your own question, then run:  python eval/run_eval.py
+# Run:  python eval/run_eval.py
 #
-# The set should include (per the brief / DECISIONS Known Weaknesses):
-#   - a straightforward single-company table lookup
-#   - a multi-company comparison (exercises decomposition)
-#   - at least ONE units/scale OR fiscal-year-mismatch question whose naive answer is wrong
-#     (e.g. a figure reported "in thousands", or an Apple-vs-peer comparison across different
-#      fiscal year ends)
-#   - ideally one FOOTNOTE-qualified figure (a number whose meaning changes once its note is read)
-#   - refusal probes: an OUT-OF-CORPUS question (a company we don't cover) and an
-#     IN-CORPUS-BUT-UNDISCLOSED question (a covered company, a metric the 10-K doesn't report)
-#
-# Fields per item:
-#   question        (required) the question text
-#   category        (optional) your label, e.g. lookup | comparison | units | fiscal_year |
-#                              footnote | refusal_oos | refusal_undisclosed
-#   note            (optional) a reminder to yourself for grading (e.g. the correct figure)
+# Categories used in this set:
+#   lookup            — single-company, single-figure from a specific financial statement
+#   year_over_year    — change between two periods reported in the same 10-K
+#   segment_lookup    — explicitly asks for a segment/division figure (not consolidated)
+#   comparison        — multi-company, triggers decomposition
+#   units             — figure whose unit differs from the table's stated unit label
+#   fiscal_year       — cross-company comparison with differing fiscal year ends
+#   footnote          — figure whose meaning changes once the qualifying note is read
+#   precision         — two adjacent line items that are easy to confuse (top-line vs bottom-line etc.)
+#   computed_metric   — answer requires arithmetic on two cited figures
+#   semantic          — qualitative/conceptual query, no single numeric answer
+#   alias             — tests a non-obvious entry in the router alias map
+#   router_clarify    — no company named → should trigger clarify mode, no retrieval
+#   router_edge       — exposes a known router ambiguity (mixed in/out-of-corpus)
+#   refusal_oos       — out-of-corpus company → Gate 1 threshold refusal
+#   refusal_undisclosed — in-corpus company, metric not disclosed in 10-K → Gate 2 synthesis refusal
+#   multi_statement   — answer requires figures from two different financial statements
 
-- question: "What were Coca-Cola's net operating revenues for fiscal year 2024?"
+# ── LOOKUP: income statement ─────────────────────────────────────────────────
+
+- question: "What was Apple's total operating income for fiscal year 2025?"
   category: lookup
-  note: "Income-statement top line. Coca-Cola labels it 'Net operating revenues', not 'Revenue',
-         so this also tests terminology. Record the exact figure + units (millions) from Item 8."
- 
-- question: "What were Walmart's total assets at the end of its most recent fiscal year?"
+  note: "Income-statement item, distinct from net income (which is after tax/interest).
+         Apple labels it 'Total operating income' in Item 8. FY2025 ends Sep 27, 2025.
+         Record exact figure + units (millions). Do NOT accept net income as a substitute —
+         grading this tests whether the system distinguishes operating from net income."
+
+- question: "How much net cash did NVIDIA generate from operating activities in its most
+             recent fiscal year?"
   category: lookup
-  note: "Balance-sheet lookup — confirms the system reads statements beyond the income statement.
-         Record the figure + units."
- 
-# --- multi-company comparison 
-- question: "Which of these companies reported the highest total revenue in its most recent
-             fiscal year, and what were the figures?"
+  note: "Cash flow statement (Consolidated Statements of Cash Flows), Item 8.
+         Distinct from net income — operating cash flow includes working-capital adjustments
+         and non-cash charges (e.g. stock-based compensation, depreciation).
+         Tests whether cash flow statement chunks were indexed and are retrievable.
+         Record the exact figure + fiscal year end (Jan 25/26, 2026)."
+
+- question: "What was Caterpillar's long-term debt as of December 31, 2025?"
+  category: lookup
+  note: "Balance sheet item (Consolidated Balance Sheet), Item 8. May appear as
+         'Long-term debt due after one year' or similar label. Verify the exact line-item
+         label and value (in millions). Different from current portion of long-term debt —
+         grade on whether the system retrieves the non-current long-term figure specifically."
+
+# ── YEAR-OVER-YEAR ───────────────────────────────────────────────────────────
+
+- question: "Did JPMorgan Chase's provision for credit losses increase or decrease from 2024
+             to 2025, and by how much in dollar terms?"
+  category: year_over_year
+  note: "10-Ks present 2-3 years on the income statement. Provision for credit losses is a
+         key banking line item (appears in JPM's income statement, Item 8). Tests whether the
+         system extracts both years' figures from the same chunk or adjacent chunks and computes
+         the direction and magnitude of change. Record both the 2024 and 2025 figures to grade."
+
+- question: "How did NVIDIA's research and development expenses change from fiscal year 2025
+             to fiscal year 2026, both in dollar terms and as a percentage of total revenue?"
+  category: year_over_year
+  note: "Two sub-parts: (1) dollar change = FY2026 R&D minus FY2025 R&D — both years are on
+         the income statement in the same filing. (2) R&D as % of revenue requires dividing
+         R&D by total revenue for each year — a computed ratio not stated in the filing.
+         Grade part (1) on accuracy; grade part (2) on whether the system computes it or
+         correctly states it is not directly reported. Record all four raw figures to verify."
+
+# ── SEGMENT LOOKUP ───────────────────────────────────────────────────────────
+
+- question: "What were Sam's Club's net sales for Walmart's fiscal year ended January 31, 2026?"
+  category: segment_lookup
+  note: "Explicitly asks for a SEGMENT figure. The correct answer is Sam's Club net sales from
+         Walmart's segment table — NOT the consolidated $713,163M total. The system must label
+         the figure as segment-level and not present it as Walmart's company-wide total.
+         This is the inverse of the segment-vs-consolidated weakness: here the user WANTS the
+         segment figure, so the synthesis rule 'prefer consolidated' must not override an
+         explicit segment request. Record the Sam's Club net sales figure to grade."
+
+# ── COMPARISON (decompose) ───────────────────────────────────────────────────
+
+- question: "Which of the six companies reported the highest operating income (or closest
+             equivalent) in its most recent fiscal year, and what were each company's figures?"
   category: comparison
-  note: "Fans out across all six. A correct answer must also state each company's fiscal-year-end,
-         since the periods are not the same. Fill in the six top-line figures from each Item 8 to grade.
-         Watch terminology: Apple 'net sales', Coca-Cola 'net operating revenues', Caterpillar
-         'total sales and revenues', JPMorgan 'total net revenue'."
- 
-# --- units trap  ---
-- question: "What was Apple's diluted weighted-average share count for fiscal 2025?"
+  note: "Terminology varies by company — this is the core challenge:
+           Apple: 'Total operating income'
+           Walmart: 'Operating income'
+           NVIDIA: 'Operating income'
+           Caterpillar: 'Operating profit'
+           Coca-Cola: 'Operating income'
+           JPMorgan: does NOT report a clean operating income line (banking P&L structure
+                     differs; 'income before income tax provision' is the closest).
+         A correct answer names each company's figure with its specific label and flags
+         JPMorgan's structural difference. Fill in all six figures from Item 8 to grade."
+
+- question: "Which of the six companies had the lowest total revenue in its most recent fiscal year?"
+  category: comparison
+  note: "Superlative with no company named → SUPERLATIVE_RE in router.py should trigger
+         decompose across all six. Correct answer is Coca-Cola (smallest top line by far).
+         Answer must state each company's figure and fiscal year end, since periods differ.
+         This also tests whether the superlative routing branch fires correctly without any
+         company name in the question."
+
+# ── UNITS TRAP ───────────────────────────────────────────────────────────────
+
+- question: "What was NVIDIA's basic earnings per share for its fiscal year ended January 25, 2026?"
   category: units
-  note: "Trap: on Apple's income statement, dollars are in millions but share counts are in
-         THOUSANDS. A system that stamps one 'in millions' label on the whole table is off by 1000x.
-         Verify the scale on the face of the statement and record the correct number + unit."
- 
-# --- fiscal-year-mismatch ---
-- question: "Compare Walmart's and Coca-Cola's most recent annual total revenue. What period does
-             each figure cover?"
+  note: "Units trap: EPS is in DOLLARS PER SHARE (e.g. $2.99), not in millions like revenue/income
+         figures on the same income statement. A system that blindly applies the table's
+         'in millions' header to EPS would return a figure 1,000,000x too small or misstate
+         the unit. Verify the exact EPS figure from the income statement and confirm the unit
+         is 'per share' not 'millions'. Record the correct value."
+
+# ── FISCAL YEAR MISMATCH (3 different year-ends) ─────────────────────────────
+
+- question: "Compare Apple's, NVIDIA's, and Caterpillar's most recent net income. What fiscal
+             period does each figure cover?"
   category: fiscal_year
-  note: "Walmart's FY ends ~Jan 31, 2025; Coca-Cola's ends Dec 31, 2024. Correct answer must flag
-         that the two figures cover DIFFERENT periods and not present them as the same year.
-         Record both figures."
- 
-# --- footnote-qualified figure (meaning changes once the note is read) ---
-- question: "What does NVIDIA's most recent 10-K disclose about customer concentration, and what
-             portion of revenue did its largest customer(s) represent?"
-  category: footnote
-  note: "Note/MD&A-driven (concentration of revenue, significant customers). The percentage is
-         meaningless without the surrounding disclosure. VERIFY the exact wording/figure exists in
-         NVIDIA's filing; if phrased differently (e.g. 'one customer accounted for ~X%'), match it.
-         Tests whether the system surfaces the qualifier, not just a bare number."
- 
-# --- near-miss line-item precision (weakness #3) ---
-- question: "What was Caterpillar's total sales and revenues, and separately its profit (net income),
-             for 2024?"
-  category: precision
-  note: "Tests whether the system confuses the top line ('total sales and revenues') with the
-         bottom line ('profit'/'net income'). Both are on the income statement; record both exact
-         figures. A precisely-cited but wrong-concept answer is the failure to watch for."
- 
-# --- refusal: out-of-corpus company (should refuse via threshold gate) ---
-- question: "What was Microsoft's total revenue in its latest fiscal year?"
+  note: "Three companies, three different fiscal year ends:
+           Apple: FY ends September 27, 2025
+           NVIDIA: FY ends January 25/26, 2026
+           Caterpillar: FY ends December 31, 2025
+         The answer MUST state all three periods explicitly. Presenting these as the same year
+         is wrong. Record all three net income figures and verify the periods are labeled.
+         This is a harder version of the existing WMT/KO comparison (two FY ends → three)."
+
+# ── COMPUTED METRIC ───────────────────────────────────────────────────────────
+
+- question: "What was Coca-Cola's gross profit and gross profit margin for fiscal year 2025?"
+  category: computed_metric
+  note: "Two sub-parts: (1) gross profit — check whether it is stated directly on the income
+         statement or must be computed as (Net operating revenues minus Cost of goods sold).
+         (2) gross profit margin = gross profit / net operating revenues × 100 — a ratio not
+         stated in the filing, requires arithmetic on two cited figures.
+         Grade (1) on whether the figure is correct and cited; grade (2) on whether the system
+         computes it correctly or honestly states it is not directly reported.
+         Record net operating revenues and cost of goods sold to verify."
+
+# ── SEMANTIC / QUALITATIVE ────────────────────────────────────────────────────
+
+- question: "What cybersecurity risks did Walmart disclose in its most recent 10-K filing?"
+  category: semantic
+  note: "Qualitative, Item 1A content. No single figure to verify — grade on whether cited
+         chunks are from Walmart's Item 1A and whether the answer accurately reflects what the
+         filing actually says (not a generic description of cybersecurity risk). Tests semantic/
+         dense retrieval of conceptual content where keyword overlap with the query may be low.
+         Read Walmart's Item 1A cybersecurity section to verify content accuracy."
+
+- question: "Which of the six companies identified supply chain disruption as a material risk
+             factor in their most recent 10-K?"
+  category: semantic
+  note: "Qualitative, multi-company, Item 1A across all six. Triggers decompose (superlative/
+         comparison phrasing across all). Tests semantic retrieval of a concept ('supply chain
+         disruption risk') that may appear under different headings and phrasings per company.
+         A correct answer names which companies disclosed this risk and briefly characterizes
+         the disclosure. Read each company's Item 1A to verify; most should mention it."
+
+# ── ALIAS ROUTING ─────────────────────────────────────────────────────────────
+
+- question: "What was Chase's total net revenue for fiscal year 2025?"
+  category: alias
+  note: "Tests the router alias map: 'Chase' → ticker JPM (listed in config.ALIASES).
+         Should route as mode=single, tickers=[JPM] — NOT clarify or oos.
+         Correct figure is JPMorgan Chase's 'Total net revenue' from Item 8 (fiscal year
+         ended December 31, 2025). If the system fails to identify Chase as JPMorgan and
+         returns a clarify or oos response, the alias routing has failed. Record the figure."
+
+# ── ROUTER: CLARIFY MODE ──────────────────────────────────────────────────────
+
+- question: "What was total revenue last year?"
+  category: router_clarify
+  note: "No company named, no superlative, no other capitalized named entity.
+         Expected router behavior: mode=clarify, no retrieval attempted, response asks
+         which company the user means. Grade refusal-correct=yes if the system asks for
+         clarification rather than retrieving. Grade refusal-correct=no if it guesses a
+         company or retrieves anything. The refusal_reason in the output should be 'clarify'."
+
+# ── ROUTER EDGE CASE ─────────────────────────────────────────────────────────
+
+- question: "Compare Apple's and Tesla's most recent annual revenue."
+  category: router_edge
+  note: "Known router edge case (see DECISIONS.md). 'Apple' matches detect_companies →
+         tickers=[AAPL], mode=single. Because detect_companies returns a non-empty list,
+         the oos branch (which would catch 'Tesla' as an out-of-corpus named entity) never
+         fires. EXPECTED behavior: system answers only for Apple and says nothing about Tesla
+         not being in the corpus — the Tesla part of the question is silently dropped.
+         GRADE: record what actually happens. Does it answer only Apple? Does it mention Tesla
+         is not covered? This test documents the gap, not necessarily a failure — but the
+         answer should make clear it only addresses Apple."
+
+# ── REFUSAL: OUT-OF-CORPUS ───────────────────────────────────────────────────
+
+- question: "What was Amazon's net income for its most recent fiscal year?"
   category: refusal_oos
-  note: "Microsoft is NOT in the corpus. Expected: refuse via the threshold gate (no relevant
-         chunks retrieved). Grade refusal-correct, not a number."
- 
-# --- refusal: covered company, undisclosed metric (should refuse via synthesis/gaps) ---
-- question: "What is JPMorgan Chase's customer Net Promoter Score (NPS)?"
+  note: "Amazon is NOT in the corpus. Expected: refused via Gate 1 threshold (top_sim < 0.50).
+         'Amazon' will be detected as a named entity by the router → mode=oos, unfiltered
+         retrieval. The best matching chunk should score well below the 0.50 threshold.
+         Record top_sim to extend the threshold calibration dataset (alongside Microsoft 0.454,
+         Tesla 0.487). Grade refusal-correct=yes if refused via threshold."
+
+# ── REFUSAL: IN-CORPUS BUT UNDISCLOSED ───────────────────────────────────────
+
+- question: "What is Apple's employee engagement or satisfaction score?"
   category: refusal_undisclosed
-  note: "JPMorgan IS covered, but a 10-K does not report NPS. Retrieval WILL return JPMorgan chunks
-         that lack the answer, so the threshold won't fire — this must be caught by the synthesis/gaps
-         gate stating 'not found', not a guess. Grade refusal-correct. This is the hardest refusal case."
+  note: "Apple IS in the corpus. Employee engagement/satisfaction scores are NOT disclosed in
+         10-K filings (10-Ks mention headcount and human capital programs but not scored metrics).
+         Retrieval WILL return Apple chunks about its workforce (top_sim likely > 0.50), so
+         Gate 1 will not fire. This must be caught by Gate 2: the synthesis prompt must say
+         'not found' and Apple should appear in the gaps list.
+         Grade refusal-correct=yes only if the system does not fabricate a score."
+
+- question: "What is Caterpillar's Net Promoter Score from dealers or customers?"
+  category: refusal_undisclosed
+  note: "Caterpillar IS in the corpus. NPS is not a 10-K disclosure. Unlike JPMorgan NPS
+         (already in the baseline eval), this tests a different company and metric category
+         (dealer/customer satisfaction vs employee). Retrieval will return CAT chunks about
+         dealer networks and customer relationships — plausible but lacking the metric.
+         Gate 2 must catch it. Grade refusal-correct=yes if the system refuses to fabricate
+         a score and names Caterpillar in the gaps or says 'not found'."
+
+# ── MULTI-STATEMENT SYNTHESIS ─────────────────────────────────────────────────
+
+- question: "For Caterpillar's fiscal year 2025, what was its net cash provided by operating
+             activities, and how did that compare to its net income for the same period?"
+  category: multi_statement
+  note: "Requires two different financial statements in the same filing:
+           (1) Net income — from the Consolidated Statements of Results of Operations (income stmt)
+           (2) Net cash provided by operating activities — from the Consolidated Statement of
+               Cash Flows
+         A correct answer cites BOTH figures with DIFFERENT chunk IDs (one income-stmt chunk,
+         one cash-flow chunk). If only one is cited, the system failed to retrieve one of the
+         two statements. Record both figures from the filing to verify. The difference between
+         operating cash flow and net income (cash conversion) is the substance of the answer."
