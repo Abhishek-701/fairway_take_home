@@ -13,7 +13,10 @@ import re
 from app import config
 
 SUPERLATIVE_RE = re.compile(
-    r"\b(highest|lowest|most|least|largest|smallest|greatest|biggest|top|best|worst|"
+    # "most(?!\s+recent...)" so "most recent fiscal year" is NOT read as a superlative — that
+    # phrasing was misrouting out-of-corpus questions (e.g. "Amazon's ... most recent year") to
+    # decomposition instead of the oos/threshold gate.
+    r"\b(highest|lowest|most(?!\s+recent)|least|largest|smallest|greatest|biggest|top|best|worst|"
     r"more than|less than|compare|compared|versus|vs\.?|which (?:company|of)|rank|ranked)\b",
     re.I,
 )

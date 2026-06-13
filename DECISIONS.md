@@ -157,11 +157,16 @@ more refusal probes. New findings (honest; no code changed — write-up/eval pas
   figure ($93,015M, labeled segment-level) without the "prefer consolidated" rule overriding it;
   Q8 now labels Walmart's $485,599M as segment-level instead of mis-claiming consolidated. All
   refusal probes safe (Amazon, Apple-engagement, CAT-NPS — no fabrication); clarify + alias routing correct.
-- NEW ROUTER BUG (Weakness #4, concrete): "most recent" contains "most", which trips SUPERLATIVE_RE,
-  so "What was Amazon's net income for its most recent fiscal year?" routes to DECOMPOSE (all six)
-  instead of OOS. Outcome was still safe (refused, gaps=all six), but the mechanism is wrong. Cheap
-  fix: don't let "most" match inside "most recent", or evaluate the out-of-corpus-entity branch
-  before the superlative branch in router.route().
+- ROUTER BUG (Weakness #4, concrete) — FIXED 2026-06-13: "most recent" contains "most", which
+  tripped SUPERLATIVE_RE, so "What was Amazon's net income for its most recent fiscal year?" routed
+  to DECOMPOSE (all six) instead of OOS. Fix: negative lookahead `most(?!\s+recent)` in router.py.
+  Verified routing for all 20 questions: only #17 changed (decompose -> oos); legit comparisons
+  ("lowest...", "Compare...") still decompose. NOTE: Amazon then scored top_sim 0.500 — right AT the
+  0.50 threshold — so Gate 1 (out-of-corpus) does NOT fire and Gate 2 (synthesis) catches it
+  ("Not found for Amazon"). Correct refusal, no fabrication, but it reinforces Weakness #5: a generic
+  metric ("net income") for an out-of-corpus company matches an in-corpus chunk at in-corpus levels.
+  Real fix is per-query-type thresholds (deliberately not nudging the global 0.50 to force it —
+  that would overfit and would also disturb the KO-attrition probe at 0.503).
 - RECALL UNDER DECOMPOSITION persists (same family as the original Q3): "lowest total revenue"
   missed Coca-Cola's revenue line; "highest operating income" missed Apple's. Real fix is XBRL for
   numbers + better Item-1A semantic recall — unchanged from the next-week list.
