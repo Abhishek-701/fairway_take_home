@@ -36,6 +36,66 @@ def build_context(chunks: list[dict]) -> str:
     return "\n\n".join(blocks)
 
 
+def build_xbrl_context(facts: list[dict]) -> tuple[str, list[dict]]:
+    """Format XBRL fact dicts as synthetic chunks readable by stream_answer().
+
+    Returns (context_string, synthetic_chunk_list). The chunk list has the same
+    schema as RAG chunks so citation/gap logic in main.py works unchanged.
+
+    Chunk IDs use the scheme  {TICKER}-XBRL-{concept_short}  so they are
+    visually distinguishable from RAG chunk IDs (e.g. AAPL-XBRL-OperatingIncomeLoss).
+    """
+    from app import config  # local import avoids circular at module level
+
+    company_facts: dict[str, list[dict]] = {}
+    for f in facts:
+        company_facts.setdefault(f["ticker"], []).append(f)
+
+    synthetic_chunks: list[dict] = []
+    for ticker, ticker_facts in company_facts.items():
+        company = config.COMPANIES.get(ticker, ticker)
+        # Use the period_end of the first fact as the filing period label.
+        period_end = ticker_facts[0].get("period_end", "")
+        filing_date = ticker_facts[0].get("filing_date", "")
+
+        # Build a short concept name for the chunk ID (last CamelCase segment).
+        def _short(concept: str) -> str:
+            return concept.split(":")[-1]
+
+        # One synthetic chunk per ticker, grouping all its facts.
+        concept_short = "_".join(_short(f["concept"]) for f in ticker_facts[:2])
+        chunk_id = f"{ticker}-XBRL-{concept_short}"
+
+        # Text mimics the serialized-table format from parse.py so the model
+        # treats it like any other financial statement excerpt.
+        lines = [
+            f"[{company}] Item 8: Financial Statements — XBRL-tagged consolidated figures "
+            f"(period ending {period_end}, filed {filing_date}, in millions unless noted)"
+        ]
+        for f in ticker_facts:
+            concept_label = _short(f["concept"])
+            unit_note = " per share" if "pershare" in f["concept"].lower() else ""
+            lines.append(
+                f"Consolidated | {concept_label}{unit_note} | {period_end} = {f['value_display']}"
+            )
+
+        chunk_text = "\n".join(lines)
+        synthetic_chunks.append({
+            "chunk_id": chunk_id,
+            "ticker": ticker,
+            "company": company,
+            "item": "Item 8",
+            "section_title": "Financial Statements (XBRL)",
+            "filing_date": filing_date,
+            "fused_score": 1.0,  # XBRL facts rank above RAG chunks
+            "text": chunk_text,
+            "kind": "xbrl",
+        })
+
+    context_str = build_context(synthetic_chunks)
+    return context_str, synthetic_chunks
+
+
 def stream_answer(question: str, chunks: list[dict]):
     """Yield answer text chunks (for SSE). Caller accumulates for citations/gaps."""
     context = build_context(chunks)
