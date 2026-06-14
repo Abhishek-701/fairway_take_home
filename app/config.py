@@ -42,6 +42,66 @@ CHUNKS_PATH = _ROOT / "data" / "chunks.json"
 CHROMA_DIR = str(_ROOT / "data" / "chroma")
 COLLECTION = "filings"
 
+# --- XBRL fact store ---
+FACTS_PATH = _ROOT / "data" / "facts.json"
+
+# Concept map: canonical metric name -> list of XBRL concept(s) to try, per ticker.
+# Key "_default" applies to any ticker not listed explicitly.
+# Verified against probe data from all six filings (see DECISIONS.md Fix D).
+#
+# Per-ticker overrides are required for:
+#   revenue  — AAPL uses RevenueFromContractWithCustomerExcludingAssessedTax (total = Products+Services);
+#              JPM uses RevenuesNetOfInterestExpense (banks report net of funding cost);
+#              all others use us-gaap:Revenues.
+#   net_income — CAT's consolidated income is ProfitLoss (8,882); NetIncomeLoss is absent at c-1.
+#   provision_credit_loss — JPM-specific; not applicable to others (mapped to []).
+#
+# All concept lists are ordered: first match wins (try primary concept, fall back to alt).
+XBRL_CONCEPT_MAP: dict[str, dict[str, list[str]]] = {
+    "revenue": {
+        "AAPL": ["us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax"],
+        "JPM":  ["us-gaap:RevenuesNetOfInterestExpense"],
+        "_default": ["us-gaap:Revenues"],
+    },
+    "operating_income": {
+        "_default": ["us-gaap:OperatingIncomeLoss"],
+    },
+    "net_income": {
+        "CAT": ["us-gaap:ProfitLoss"],                   # NetIncomeLoss absent at consolidated level
+        "_default": ["us-gaap:NetIncomeLoss", "us-gaap:ProfitLoss"],
+    },
+    "operating_cash_flow": {
+        "_default": ["us-gaap:NetCashProvidedByUsedInOperatingActivities"],
+    },
+    "eps_basic": {
+        "_default": ["us-gaap:EarningsPerShareBasic"],
+    },
+    "eps_diluted": {
+        "_default": ["us-gaap:EarningsPerShareDiluted"],
+    },
+    "r_and_d": {
+        "_default": ["us-gaap:ResearchAndDevelopmentExpense"],
+    },
+    "provision_credit_loss": {
+        "JPM": ["us-gaap:ProvisionForLoanLeaseAndOtherLosses"],
+        "_default": [],                                  # not applicable outside banking
+    },
+}
+
+# Keyword patterns that map a question fragment to a canonical metric name.
+# Matched case-insensitively, in order. First match wins.
+# Used by xbrl_lookup() in main.py to detect numeric intent without an LLM.
+XBRL_KEYWORD_MAP: list[tuple[str, str]] = [
+    (r"provision.{0,30}(credit|loan)", "provision_credit_loss"),
+    (r"operating\s+(income|profit|earn)", "operating_income"),
+    (r"operating\s+cash\s+flow|cash.{0,20}operat", "operating_cash_flow"),
+    (r"net\s+(income|earn|profit)|profit.{0,10}loss", "net_income"),
+    (r"r\s*&\s*d|research.{0,20}develop", "r_and_d"),
+    (r"eps|earnings?\s+per\s+share|basic\s+earn", "eps_basic"),
+    (r"diluted\s+(eps|earn)", "eps_diluted"),
+    (r"(total\s+)?(net\s+)?(revenue|sales|top.line)", "revenue"),
+]
+
 # --- Companies + router alias map (regex/alias routing, no LLM — for explainability + determinism) ---
 COMPANIES = {
     "AAPL": "Apple", "JPM": "JPMorgan Chase", "WMT": "Walmart",
