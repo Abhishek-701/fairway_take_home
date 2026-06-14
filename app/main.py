@@ -11,9 +11,10 @@ import re
 from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 
-from app import config, decompose, retrieve, router, synthesize
+from app import config, decompose, facts as facts_mod, retrieve, router, synthesize
 
-CITATION_RE = re.compile(r"\[([A-Z]{2,4}-\d{3,4})\]")
+# Matches both RAG chunk IDs (e.g. AAPL-0044) and XBRL chunk IDs (e.g. AAPL-XBRL-OperatingIncomeLoss).
+CITATION_RE = re.compile(r"\[([A-Z]{2,4}-[A-Za-z0-9_-]+)\]")
 
 CLARIFY_MSG = ("I can only answer about Apple, JPMorgan Chase, Walmart, Coca-Cola, NVIDIA, and "
                "Caterpillar. Which company do you mean?")
@@ -22,6 +23,78 @@ CLARIFY_MSG = ("I can only answer about Apple, JPMorgan Chase, Walmart, Coca-Col
 def _refusal(reason: str, msg: str, meta: dict) -> dict:
     return {"answer": msg, "citations": [], "gaps": [], "refused": True,
             "refusal_reason": reason, **meta}
+
+
+def xbrl_lookup(question: str, route: dict) -> dict | None:
+    """Check the XBRL fact store for a numeric answer. Returns XBRL meta dict or None.
+
+    None means "fall through to RAG" — happens when:
+      - The question doesn't match any metric keyword in XBRL_KEYWORD_MAP
+      - No facts are found for the required tickers (metric not in XBRL for that company)
+    Designed to be called before prepare() so that decompose/retrieve LLM calls are
+    skipped entirely when the answer is already in the structured fact store.
+    """
+    mode = route["mode"]
+    tickers = route["tickers"]
+
+    # Detect canonical metric from question text (deterministic regex, no LLM)
+    metric: str | None = None
+    for pattern, m in config.XBRL_KEYWORD_MAP:
+        if re.search(pattern, question, re.I):
+            metric = m
+            break
+    if not metric:
+        return None
+
+    # Year-over-year intent: fetch both annual_recent and annual_prior
+    is_yoy = bool(re.search(
+        r"\b(change|increase|decrease|from\s+\d{4}\s+to|year.over.year|yoy|prior\s+year"
+        r"|compar.{0,10}year|both\s+year|each\s+year)\b",
+        question, re.I,
+    ))
+
+    fact_list: list[dict] = []
+
+    if mode == "decompose":
+        for ticker in tickers:
+            if is_yoy:
+                rec, pri = facts_mod.query_yoy(metric, ticker)
+                if rec:
+                    fact_list.append(rec)
+                if pri:
+                    fact_list.append(pri)
+            else:
+                f = facts_mod.query(metric, ticker)
+                if f:
+                    fact_list.append(f)
+    else:  # single
+        ticker = tickers[0] if tickers else None
+        if not ticker:
+            return None
+        if is_yoy:
+            rec, pri = facts_mod.query_yoy(metric, ticker)
+            if rec:
+                fact_list.append(rec)
+            if pri:
+                fact_list.append(pri)
+        else:
+            f = facts_mod.query(metric, ticker)
+            if f:
+                fact_list.append(f)
+
+    if not fact_list:
+        return None
+
+    _, synthetic_chunks = synthesize.build_xbrl_context(fact_list)
+    return {
+        "route": route,
+        "sub_queries": [],
+        "retrieval": [],           # no retrieval in XBRL path; eval runner defaults top_sim to 0.0
+        "context_chunks": synthetic_chunks,
+        "refused": False,
+        "xbrl_hit": True,
+        "xbrl_metric": metric,
+    }
 
 
 def prepare(question: str) -> dict:
@@ -73,17 +146,31 @@ def prepare(question: str) -> dict:
     return meta
 
 
-def answer(question: str) -> dict:
-    """Full (non-streaming) answer for the CLI/eval: runs synthesis and derives citations + gaps."""
-    meta = prepare(question)
-    if meta.get("refused"):
-        return meta
+def _finalize(question: str, meta: dict) -> dict:
+    """Shared tail: synthesize, extract citations and gaps. Works for both XBRL and RAG paths."""
     text = "".join(synthesize.stream_answer(question, meta["context_chunks"]))
     cited = set(CITATION_RE.findall(text))
-    # Gate 2 surfaced as gaps: a target company whose chunks were retrieved but never cited.
     cited_tickers = {cid.split("-")[0] for cid in cited}
     gaps = [config.COMPANIES[t] for t in meta["route"]["tickers"] if t not in cited_tickers]
     return {**meta, "answer": text, "citations": sorted(cited), "gaps": gaps, "refused": False}
+
+
+def answer(question: str) -> dict:
+    """Full (non-streaming) answer for the CLI/eval: runs synthesis and derives citations + gaps.
+
+    Fast path: route → xbrl_lookup → synthesize (no retrieval, no decompose LLM call).
+    Slow path: route → prepare (retrieval + gate) → synthesize.
+    """
+    r = router.route(question)
+    if r["mode"] not in ("clarify", "oos"):
+        xbrl_meta = xbrl_lookup(question, r)
+        if xbrl_meta:
+            return _finalize(question, xbrl_meta)
+
+    meta = prepare(question)
+    if meta.get("refused"):
+        return meta
+    return _finalize(question, meta)
 
 
 # --- Phase 4: FastAPI app + SSE streaming endpoint ---
@@ -98,7 +185,16 @@ def _sse(event: str, data: dict) -> str:
 
 def _stream_events(question: str):
     """SSE generator: stream answer tokens, then a 'done' event with citations + gaps."""
-    meta = prepare(question)
+    r = router.route(question)
+    if r["mode"] not in ("clarify", "oos"):
+        xbrl_meta = xbrl_lookup(question, r)
+        if xbrl_meta:
+            meta = xbrl_meta
+        else:
+            meta = prepare(question)
+    else:
+        meta = prepare(question)
+
     if meta.get("refused"):
         yield _sse("token", {"text": meta["answer"]})
         yield _sse("done", {"citations": [], "gaps": [], "refused": True,
