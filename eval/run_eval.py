@@ -25,7 +25,7 @@ def _md_escape(s: str) -> str:
 
 
 def run(qpath: Path, outpath: Path) -> None:
-    items = yaml.safe_load(qpath.read_text())
+    items = yaml.safe_load(qpath.read_text(encoding="utf-8"))
     if not items:
         raise SystemExit(f"No questions found in {qpath}")
 
