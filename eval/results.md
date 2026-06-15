@@ -20,7 +20,7 @@ Grades are BLANK by design (G4 — fill these in by hand):
 | 9 | units | What was NVIDIA's basic earnings per share for its fiscal year ended January 25, 2026? | single | no |  | 0.000 | NVDA-XBRL-EarningsPerShareBasic |  |  |  |  |
 | 10 | fiscal_year | Compare Apple's, NVIDIA's, and Caterpillar's most recent net income. What fiscal period does each figure cover? | decompose | no |  | 0.000 | AAPL-XBRL-NetIncomeLoss, CAT-XBRL-ProfitLoss, NVDA-XBRL-NetIncomeLoss |  |  |  |  |
 | 11 | computed_metric | What was Coca-Cola's gross profit and gross profit margin for fiscal year 2025? | single | no |  | 0.667 | KO-0088, KO-0117 |  |  |  |  |
-| 12 | semantic | What cybersecurity risks did Walmart disclose in its most recent 10-K filing? | single | no |  | 0.766 | WMT-0027, WMT-0042, WMT-0043 |  |  |  |  |
+| 12 | semantic | What cybersecurity risks did Walmart disclose in its most recent 10-K filing? | single | no |  | 0.766 | WMT-0027, WMT-0043 |  |  |  |  |
 | 13 | semantic | Which of the six companies identified supply chain disruption as a material risk factor in their most recent 10-K? | decompose | no |  | 0.692 | AAPL-0010, AAPL-0012, AAPL-0018, CAT-0017, CAT-0018, JPM-0030, KO-0022, KO-0023, NVDA-0023, NVDA-0060, WMT-0004, WMT-0022 |  |  |  |  |
 | 14 | alias | What was Chase's total net revenue for fiscal year 2025? | single | no |  | 0.000 | JPM-XBRL-RevenuesNetOfInterestExpense |  |  |  |  |
 | 15 | router_clarify | What was total revenue last year? | clarify | yes | clarify | 0.000 |  |  |  |  |  |
@@ -29,6 +29,7 @@ Grades are BLANK by design (G4 — fill these in by hand):
 | 18 | refusal_undisclosed | What is Apple's employee engagement or satisfaction score? | single | no |  | 0.536 | AAPL-0009 |  |  |  |  |
 | 19 | refusal_undisclosed | What is Caterpillar's Net Promoter Score from dealers or customers? | single | no |  | 0.509 |  | Caterpillar |  |  |  |
 | 20 | multi_statement | For Caterpillar's fiscal year 2025, what was its net cash provided by operating activities, and how did that compare to its net income for the same period? | single | no |  | 0.000 | CAT-XBRL-NetCashProvidedByUsedInOperatingActivities_ProfitLoss |  |  |  |  |
+| 21 | segment_lookup | What was NVIDIA's Data Center segment revenue for its fiscal year ended January 25, 2026? | single | no |  | 0.000 | NVDA-XBRL-Revenues |  |  |  |  |
 
 
 ## Answers (for grading)
@@ -40,7 +41,7 @@ Grades are BLANK by design (G4 — fill these in by hand):
 
 **Answer:**
 
-Apple's total operating income for fiscal year 2025 (ending September 27, 2025) was **$133,050 million** [AAPL-XBRL-OperatingIncomeLoss].
+Apple's total operating income for fiscal year 2025 (year ending September 27, 2025) was **$133,050 million** [AAPL-XBRL-OperatingIncomeLoss].
 
 ---
 
@@ -68,22 +69,19 @@ NVIDIA generated **$102,718 million** in net cash from operating activities in i
 
 Based on the provided filings, Caterpillar's long-term debt as of December 31, 2025 can be broken down as follows:
 
-**Long-term debt due after one year:**
-- Total Machinery, Power & Energy (due after one year): part of the $30,696 million total [CAT-0236]
-- Total Financial Products (due after one year): $20,018 million [CAT-0236]
-- **Total long-term debt due after one year: $30,696 million** [CAT-0236]
+**Total long-term debt due after one year: $30,696 million** [CAT-0236]
 
-**Long-term debt due within one year (current portion):**
-- The carrying value of hedged liabilities shows long-term debt due within one year of $602 million (2025) [CAT-0150]
+This consists of:
+- **Total Machinery, Power & Energy (long-term):** $10,678 million [CAT-0236]
+- **Total Financial Products (long-term):** $20,018 million [CAT-0236]
+  - Medium-term notes: $19,675 million [CAT-0236]
+  - Other: $343 million [CAT-0236]
 
-Additionally, the segment breakdown for long-term debt due after one year shows:
-- Total Machinery, Power & Energy: $10,678 million [CAT-0236]
-- Total Financial Products: $20,018 million [CAT-0236]
-- **Combined total long-term debt due after one year: $30,696 million** [CAT-0236]
+In addition, there is **long-term debt due within one year** (current portion) of **$602 million** (MP&E: $35 million for 2026 maturities per [CAT-0238], and Financial Products: $7,085 million for 2026 maturities per [CAT-0238]).
 
-The aggregate maturities of long-term debt (including amounts due within one year) for 2026 through 2030 are also provided, with 2026 maturities totaling $7,120 million (MP&E: $35 million + Financial Products: $7,085 million) [CAT-0238].
+Note: The carrying value of hedged liabilities totaled **$6,115 million** as of December 31, 2025 [CAT-0150], which represents a subset of the long-term debt subject to fair value hedges.
 
-In summary, Caterpillar's **total long-term debt due after one year as of December 31, 2025 was $30,696 million**, comprising $10,678 million for Machinery, Power & Energy and $20,018 million for Financial Products [CAT-0236].
+In summary, **total long-term debt due after one year was $30,696 million** as of December 31, 2025 [CAT-0236], with an additional current portion of long-term debt of **$602 million** [CAT-0150], bringing the **total long-term debt (including current portion) to approximately $31,298 million**.
 
 ---
 
@@ -99,7 +97,7 @@ Based on the provided data, JPMorgan Chase's provision for loan, lease, and othe
 - **2024**: $10,678 million [JPM-XBRL-ProvisionForLoanLeaseAndOtherLosses_ProvisionForLoanLeaseAndOtherLosses]
 - **2025**: $14,212 million [JPM-XBRL-ProvisionForLoanLeaseAndOtherLosses_ProvisionForLoanLeaseAndOtherLosses]
 
-The increase was **$3,534 million** year-over-year (both periods ending December 31).
+The increase was **$3,534 million** (approximately $3.5 billion) year-over-year (both periods ending December 31).
 
 ---
 
@@ -110,16 +108,16 @@ The increase was **$3,534 million** year-over-year (both periods ending December
 
 **Answer:**
 
-Based on the provided XBRL data for NVIDIA:
+Based on the provided XBRL data for NVIDIA [NVDA-XBRL-ResearchAndDevelopmentExpense_ResearchAndDevelopmentExpense]:
 
 **Dollar Change:**
-NVIDIA's R&D expenses increased from **$12,914 million** in fiscal year 2025 (ending 2025-01-26) to **$18,497 million** in fiscal year 2026 (ending 2026-01-25) [NVDA-XBRL-ResearchAndDevelopmentExpense_ResearchAndDevelopmentExpense], representing an increase of **$5,583 million** year-over-year.
+R&D expenses increased from **$12,914 million** (FY2025, ending 2025-01-26) to **$18,497 million** (FY2026, ending 2026-01-25), an increase of **$5,583 million** year-over-year.
 
 **As a Percentage of Total Revenue:**
-- **FY2025:** $12,914M / $130,497M = **~9.9%** of revenue [NVDA-XBRL-ResearchAndDevelopmentExpense_ResearchAndDevelopmentExpense]
-- **FY2026:** $18,497M / $215,938M = **~8.6%** of revenue [NVDA-XBRL-ResearchAndDevelopmentExpense_ResearchAndDevelopmentExpense]
+- FY2025: $12,914M ÷ $130,497M = **~9.9%** of revenue
+- FY2026: $18,497M ÷ $215,938M = **~8.6%** of revenue
 
-**Summary:** While R&D spending rose substantially in absolute dollar terms (+$5,583 million, or ~43%), it actually *declined as a share of revenue* by approximately 1.3 percentage points (from ~9.9% to ~8.6%), reflecting the fact that NVIDIA's revenues grew even faster than its R&D investment over the same period.
+**Summary:** While R&D spending rose substantially in absolute dollar terms (+$5,583 million, or ~43%), it actually *declined* as a share of total revenue (from ~9.9% to ~8.6%), reflecting that NVIDIA's revenues grew even faster than its R&D investment during this period.
 
 ---
 
@@ -202,17 +200,17 @@ Here is a comparison of the three companies' most recent net income figures:
 
 | Company | Net Income | Fiscal Period End |
 |---|---|---|
-| **Apple** | $112,010M | September 27, 2025 |
-| **NVIDIA** | $120,067M | January 25, 2026 |
-| **Caterpillar** | $8,882M | December 31, 2025 |
+| **Apple** | $112,010M | September 27, 2025 (FY ending Sep 2025) |
+| **NVIDIA** | $120,067M | January 25, 2026 (FY ending Jan 2026) |
+| **Caterpillar** | $8,882M | December 31, 2025 (FY ending Dec 2025) |
 
 **Key observations:**
 
-- **NVIDIA** reported the highest net income at **$120,067 million** (FY ending January 25, 2026) [NVDA-XBRL-NetIncomeLoss].
-- **Apple** came in second at **$112,010 million** (FY ending September 27, 2025) [AAPL-XBRL-NetIncomeLoss].
-- **Caterpillar** reported significantly lower net income at **$8,882 million** (FY ending December 31, 2025) [CAT-XBRL-ProfitLoss].
+- **NVIDIA** reported the highest net income at $120,067M [NVDA-XBRL-NetIncomeLoss], narrowly surpassing Apple.
+- **Apple** came in second at $112,010M [AAPL-XBRL-NetIncomeLoss].
+- **Caterpillar** reported significantly lower net income at $8,882M [CAT-XBRL-ProfitLoss], roughly 7–14× smaller than the two tech giants.
 
-Note that the fiscal year ends differ across the three companies — Apple's fiscal year ends in September, NVIDIA's in January, and Caterpillar's in December — so these figures do not cover identical time periods.
+Note that the fiscal years differ across companies: Apple's year ends in **September**, NVIDIA's in **January**, and Caterpillar's in **December**, so these figures do not cover identical calendar periods.
 
 ---
 
@@ -240,47 +238,49 @@ This margin is calculated as gross profit ($29,544 million) divided by net opera
 - **your note:** Qualitative, Item 1A content. No single figure to verify â€” grade on whether cited chunks are from Walmart's Item 1A and whether the answer accurately reflects what the filing actually says (not a generic description of cybersecurity risk). Tests semantic/ dense retrieval of conceptual content where keyword overlap with the query may be low. Read Walmart's Item 1A cybersecurity section to verify content accuracy.
 - **sub-queries:**
   - WMT: sim=0.766  q='What cybersecurity risks did Walmart disclose in its most recent 10-K filing?'
-- **citations:** WMT-0027, WMT-0042, WMT-0043  |  **gaps:** (none)
+- **citations:** WMT-0027, WMT-0043  |  **gaps:** (none)
 
 **Answer:**
 
-Based on Walmart's most recent 10-K filing (fiscal year ended January 31, 2026), the company disclosed the following cybersecurity risks:
+Based on Walmart's most recent 10-K filing (filed 2026-03-13, for fiscal year ended January 31, 2026), the company disclosed the following cybersecurity risks:
 
 ## Key Cybersecurity Risks Disclosed by Walmart
 
-### 1. AI-Enabled Threats
-The use of AI has intensified cybersecurity risks by enabling faster and more automated attack techniques, lowering barriers to creating sophisticated threats, and compressing detection/response time. Attackers are using AI to autonomously conduct reconnaissance, generate exploit code, harvest credentials, craft social-engineering content, and execute large-scale intrusion or extortion campaigns [WMT-0027].
+### 1. AI-Intensified Threats
+The use of AI has intensified existing cybersecurity risks by enabling faster and more automated attack techniques, lowering the barrier to creating sophisticated threats, and compressing detection/response time. Attackers are using AI to autonomously conduct reconnaissance, generate exploit code, harvest credentials, craft social-engineering content, and execute large-scale intrusion or extortion campaigns [WMT-0027].
 
-### 2. Ongoing Cyberattacks on Digital Platforms
-Walmart's digital platforms are **regularly subject to cyberattacks**, including attempts to:
+### 2. Prior Incidents
+Some of Walmart's information systems and those of third-party service providers **have experienced cybersecurity incidents or breaches, including during fiscal 2026**, though they have not had a material adverse effect to date [WMT-0027].
+
+### 3. Digital Platform Vulnerabilities
+Walmart's digital platforms are regularly subject to cyberattacks involving attempts to:
 - Impede system operations
 - Gain unauthorized access to eCommerce websites and mobile commerce applications
-- Obtain and misuse customers' personal information and/or payment information [WMT-0027]
+- Obtain and misuse customers' personal and/or payment information [WMT-0027]
 
-### 3. Prior Incidents
-Some of Walmart's information systems and those of third-party service providers **have experienced cybersecurity incidents or breaches, including during fiscal 2026**, though none have had a material adverse effect to date [WMT-0027].
-
-### 4. Third-Party/Vendor Risks
-Cybersecurity threats can arise from third-party systems that support Walmart's operations, including vendors, service providers, and subcontractors [WMT-0042].
+### 4. Potential Consequences of Successful Attacks
+Successful attacks could result in:
+- Data and personal information misuse/loss
+- Denial of service or system disruption
+- Regulatory fines
+- Loss of sales and reputational damage
+- Liability to customers, members, or others whose information is compromised [WMT-0027]
 
 ### 5. Internal Vulnerabilities
-- Associate error or malfeasance
-- Faulty password and identity management
-- Social engineering
-- Hardware/software vulnerabilities or defects that could be exploited [WMT-0027]
+Associate error or malfeasance, faulty password and identity management, social engineering, and software/hardware vulnerabilities could defeat security measures [WMT-0027].
 
-### 6. Legacy and Acquired Systems
-Systems used in legacy operations and acquired eCommerce or technology businesses present additional cybersecurity exposure, and patches for certain vulnerabilities may not exist or may not be deployed before exploitation occurs [WMT-0027].
+### 6. Legacy System Risks
+Hardware, software, or applications may have vulnerabilities or defects that could be exploited, and patches for certain vulnerabilities may not exist or may not be deployed before exploitation occurs [WMT-0027].
 
-### 7. Potential Consequences
-If cybersecurity measures fail, Walmart could face:
-- Regulatory fines (including under HIPAA and state data breach laws)
-- Loss of sales and reputational damage
-- Liability to customers, members, associates, vendors, and financial institutions
-- Disruption to supply chain and business operations [WMT-0027]
+### 7. Third-Party Risk
+Cybersecurity threats extend to third-party service providers and businesses with which Walmart interacts, and a compromise of those systems could also harm Walmart [WMT-0027].
 
-### 8. No Material Impact (as of filing date)
-Despite these risks, Walmart stated it is **not aware of any cybersecurity threats or incidents that have materially affected or are reasonably likely to materially affect** its business strategy, results of operations, or financial condition as of the filing date [WMT-0043].
+### 8. Regulatory Exposure
+A breach could expose Walmart to liability under HIPAA (for health information) and international and state data breach notification laws (for personal information) [WMT-0027].
+
+---
+
+Despite these risks, Walmart stated: *"Based on the information available as of the date of this Annual Report on Form 10-K, we are not aware of any risks from cybersecurity threats, including as a result of any cybersecurity incidents, which have materially affected us or are reasonably likely to materially affect us"* [WMT-0043].
 
 ---
 
@@ -300,19 +300,17 @@ Despite these risks, Walmart stated it is **not aware of any cybersecurity threa
 
 Based on the provided 10-K excerpts, the following companies identified supply chain disruption as a material risk factor:
 
-1. **Apple** – Discussed risks from supply chain disruptions caused by natural disasters, pandemics, industrial accidents, geopolitical tensions, trade restrictions, and cybersecurity incidents affecting suppliers [AAPL-0010], [AAPL-0012], [AAPL-0018].
+1. **Apple** – Discussed risks from supply chain disruptions caused by natural disasters, pandemics, geopolitical tensions, trade restrictions, and cybersecurity incidents affecting suppliers and contract manufacturers [AAPL-0010], [AAPL-0012], [AAPL-0018].
 
 2. **Caterpillar** – Identified supply chain disruption risks including commodity price volatility, material shortages, semiconductor supply issues, logistics constraints, and labor inefficiencies as material risks [CAT-0017], [CAT-0018].
 
-3. **Coca-Cola** – Highlighted disruptions in manufacturing operations and supply chain as a material risk, including raw material shortages, energy costs, weather events, geopolitical instability, and transportation constraints [KO-0022], [KO-0023].
+3. **Coca-Cola** – Highlighted disruptions in manufacturing operations and supply chain as a material risk, including raw material shortages, energy costs, weather events, geopolitical instability, and tariffs affecting suppliers [KO-0022], [KO-0023].
 
-4. **Walmart** – Identified risks from supply chain disruptions related to natural disasters, geopolitical events, supplier compliance issues, and tariffs [WMT-0022], [WMT-0004].
+4. **Walmart** – Identified risks from supply chain disruptions including natural disasters, geopolitical events, supplier compliance issues, and difficulties sourcing from international suppliers [WMT-0022], [WMT-0004].
 
 5. **NVIDIA** – Identified supply chain risks including long manufacturing lead times, supply/demand mismatches, export restrictions, and component availability issues [NVDA-0023], [NVDA-0060].
 
-6. **JPMorgan Chase** – While JPMorgan Chase's risk factors discuss operational risks broadly [JPM-0030], no specific supply chain disruption risk was identified in the provided excerpts.
-
-Thus, **five of the six companies** — Apple, Caterpillar, Coca-Cola, Walmart, and NVIDIA — explicitly identified supply chain disruption as a material risk factor. Supply chain disruption as a material risk is **not found in the provided filings for JPMorgan Chase**.
+6. **JPMorgan Chase** – While JPMorgan Chase mentioned operational risks broadly [JPM-0030], supply chain disruption was not explicitly identified as a material risk factor in the provided excerpts, which is consistent with its nature as a financial institution rather than a goods manufacturer or retailer.
 
 ---
 
@@ -345,13 +343,13 @@ I can only answer about Apple, JPMorgan Chase, Walmart, Coca-Cola, NVIDIA, and C
 
 **Answer:**
 
-Based on the provided context, I can only speak to one of the two companies:
+Based on the provided context, I can only partially answer this comparison:
 
-- **Apple** (fiscal year ending 2025-09-27): Revenue = **$416,161 million** [AAPL-XBRL-RevenueFromContractWithCustomerExcludingAssessedTax]
+- **Apple** (fiscal year ending **September 27, 2025**): Revenue = **$416,161 million** [AAPL-XBRL-RevenueFromContractWithCustomerExcludingAssessedTax]
 
 - **Tesla**: Not found in the provided filings for Tesla.
 
-Without Tesla's revenue data in the provided context, a full cross-company comparison cannot be made.
+No Tesla 10-K excerpt was included in the provided context, so a full comparison cannot be made.
 
 ---
 
@@ -377,7 +375,7 @@ Not found in the provided filings for Amazon. The provided context contains fina
 
 **Answer:**
 
-Not found in the provided filings for Apple. The 10-K excerpts discuss Apple's human capital practices, including surveys that gauge employee sentiment in areas like career development, manager performance, and inclusion [AAPL-0009], but no specific employee engagement or satisfaction score is disclosed.
+Not found in the provided filings for Apple. The 10-K excerpts describe Apple's human capital practices, including surveys that "gauge employee sentiment in areas like career development, manager performance and inclusion" [AAPL-0009], but no specific employee engagement or satisfaction score is disclosed.
 
 ---
 
@@ -404,6 +402,23 @@ Not found in the provided filings for Caterpillar. The provided 10-K excerpts do
 For Caterpillar's fiscal year ending December 31, 2025:
 
 - **Net cash provided by operating activities**: $11,739 million [CAT-XBRL-NetCashProvidedByUsedInOperatingActivities_ProfitLoss]
-- **Net income (Profit/Loss)**: $8,882 million [CAT-XBRL-NetCashProvidedByUsedInOperatingActivities_ProfitLoss]
+- **Net income (ProfitLoss)**: $8,882 million [CAT-XBRL-NetCashProvidedByUsedInOperatingActivities_ProfitLoss]
 
 Operating cash flow exceeded net income by **$2,857 million**, meaning Caterpillar generated approximately **32% more cash from operations than its reported net income**. This difference is typical and reflects non-cash charges (such as depreciation and amortization) and working capital changes that cause operating cash flow to exceed net income.
+
+---
+
+### 21. What was NVIDIA's Data Center segment revenue for its fiscal year ended January 25, 2026?
+- **category:** segment_lookup  |  **route:** single  |  **refused:** False ()  |  **top_sim:** 0.000
+- **your note:** DELIBERATE FAILURE â€” documents a known architectural gap in the XBRL fast path.
+Actual system behavior (confirmed by probe run): xbrl_hit=True, metric='revenue' â€” XBRL intercepts the query because the keyword 'revenue' matches before any segment check. The XBRL chunk only has the consolidated total ($215,938M). Claude correctly says the segment figure is 'not found' rather than misreporting the consolidated total, but the Data Center figure IS disclosed in NVIDIA's Item 8 Segment Information note. It is never retrieved because XBRL blocked RAG from running.
+The correct answer is NVIDIA's Data Center segment revenue from Item 8. Look it up in the 10-K to fill in the figure for grading. The segment figure is a large but DISTINCT subset of the $215,938M consolidated total.
+Root cause: xbrl_lookup's segment bail-out is hardcoded for a fixed list of known segment names (Sam's Club, CAT Financial Products, ME&T). 'Data Center' is not on that list, so the bail-out does not fire. A general fix requires either (a) detecting compound-noun segment phrases before the metric keyword, or (b) an LLM classifier for segment vs. consolidated intent.
+Grade: correct=no (segment figure missing â€” answer says 'not found' which is honest but incomplete; the figure is in the filing); grounded=no (XBRL chunk has no segment breakdown; RAG was never consulted); refusal-correct=N/A.
+- **citations:** NVDA-XBRL-Revenues  |  **gaps:** (none)
+
+**Answer:**
+
+Based on the provided context, I can only find NVIDIA's **consolidated total revenues** of **$215,938 million** for the fiscal year ended January 25, 2026 [NVDA-XBRL-Revenues].
+
+The Data Center **segment-level** revenue is **not found in the provided filings for NVIDIA**. The figure available is the company-wide consolidated total, not a breakdown by segment.

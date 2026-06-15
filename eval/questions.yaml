@@ -229,6 +229,93 @@
          two statements. Record both figures from the filing to verify. The difference between
          operating cash flow and net income (cash conversion) is the substance of the answer."
 
+# ── MULTI-STATEMENT RAG (metrics NOT in XBRL_CONCEPT_MAP → forces real retrieval) ─────
+
+- question: "What were Apple's capital expenditures for fiscal year 2025, and what were its
+             total assets as of September 27, 2025?"
+  category: multi_statement
+  note: "XBRL fast-path bypass test: 'capital expenditures' and 'total assets' do NOT match
+         any pattern in XBRL_KEYWORD_MAP, so the system MUST fall through to RAG.
+
+         Confirmed correct figures (verified by direct chunk search):
+           Total assets (B/S):    AAPL-0063  → $359,241M as of Sep 27, 2025
+           Capital expenditures:  AAPL-0068  → INGEST BUG: 'Purchases of property, plant
+                                               and equipment' row is ABSENT from the
+                                               serialized CFS chunk; only 'Other' and
+                                               net investing totals appear. The capex figure
+                                               is NOT retrievable regardless of query quality.
+
+         Expected system behavior:
+           xbrl_hit = False  ← PASS (XBRL bypass works correctly; confirmed in run)
+           top_sim  = 0.73   ← PASS (strong in-corpus signal)
+           Total assets: likely miss — AAPL-0063 (B/S) is in-corpus but does not rank in
+             top-6 when combined with the capex query; isolated probe confirms it's accessible
+             (appears 3rd at fused=0.029) but is crowded out in the compound query.
+           Capital expenditures: definitive miss — row missing from ingest (see above).
+
+         Grade: correct=no (two independent failures: one ingest, one retrieval);
+                xbrl_hit=False is REQUIRED for this question to be graded at all.
+
+         Requires two different financial statements:
+           (1) Capital expenditures — CFS investing section (Item 8), chunk AAPL-0068.
+               Row 'Purchases of property, plant and equipment' is missing from serialization.
+           (2) Total assets — Consolidated Balance Sheet (Item 8), chunk AAPL-0063.
+               Figure present ($359,241M) but chunk dropped from top-6 in compound query."
+
+- question: "How much did NVIDIA pay in dividends during its fiscal year ended January 26, 2026,
+             and what was its income tax provision for the same period?"
+  category: multi_statement
+  note: "XBRL fast-path bypass test: 'dividends' and 'income tax provision' do NOT match any
+         pattern in XBRL_KEYWORD_MAP (the provision pattern requires '...credit|loan' within
+         30 chars, which 'income tax provision' does not satisfy). System MUST fall to RAG.
+
+         Confirmed correct figures (verified by direct chunk search):
+           Dividends paid (CFS financing): NVDA-0055/0080 → $974M paid in FY2026
+               (MD&A chunks: 'In fiscal year 2026, we paid cash dividends of $974 million')
+           Income tax provision (I/S):     NVDA-0162      → $21,383M for FY2026
+               (income tax expense from income statement)
+
+         Expected system behavior:
+           xbrl_hit = False  ← PASS (confirmed in run)
+           top_sim  = 0.712  ← PASS
+           Income tax found: YES (NVDA-0162 cited) ← PASS (income tax keywords dominate)
+           Dividends found: NO — income tax query dominates the combined embedding; NVDA-0112
+             (CFS financing) and NVDA-0055/0080 (MD&A dividend disclosure) are not in top-6.
+             Isolated probe for dividends retrieves NVDA-0112 first (top_sim=0.669) — the
+             data IS accessible but is crowded out in the compound multi-statement query.
+
+         Grade: partially correct — income tax present, dividends absent.
+                Two different statements needed (CFS financing + income statement).
+                Root cause: single-embedding compound query favors income tax keywords."
+
+- question: "How much did Walmart spend repurchasing its own shares during fiscal year ended
+             January 31, 2026, and what was its total shareholders' equity at that date?"
+  category: multi_statement
+  note: "XBRL fast-path bypass test: 'share repurchases' and 'shareholders equity' do NOT match
+         any XBRL_KEYWORD_MAP pattern. System MUST fall through to RAG.
+
+         Confirmed correct figures (verified by direct chunk search):
+           Share repurchases (CFS financing): WMT-0136 → 85.0M shares at avg $95.13/share
+                                                          = $8,088M total cash paid
+           Total Walmart shareholders' equity (B/S): WMT-0107 → $99,617M as of Jan 31, 2026
+               (distinct from noncontrolling interest; Walmart-only equity subtotal)
+
+         Expected system behavior:
+           xbrl_hit = False  ← PASS (confirmed in run)
+           top_sim  = 0.752  ← PASS
+           Share repurchases found: YES ($8,088M, WMT-0136 cited) ← PASS
+           Shareholders' equity found: NO — WMT-0107 (B/S) exists and ranks first in an
+             isolated equity-only probe (top_sim=0.782), but is dropped from top-6 in the
+             compound query because repurchase keywords dominate the combined embedding.
+
+         Grade: partially correct — repurchases present, equity absent.
+                Clearest example of the multi-statement compound-query retrieval failure:
+                the equity chunk (WMT-0107) IS the highest-similarity match for an equity-only
+                query, but it cannot compete when sharing a 6-slot budget with the repurchase
+                intent. Citations should include WMT-0136 (CFS) AND WMT-0107 (B/S) — if only
+                WMT-0136 is cited, the second-statement retrieval has failed.
+                Correct equity figure: $99,617M (Total Walmart shareholders' equity)."
+
 # ── DELIBERATE FAILURE (brittleness probe) ────────────────────────────────────
 
 - question: "What was NVIDIA's Data Center segment revenue for its fiscal year ended January 25, 2026?"
