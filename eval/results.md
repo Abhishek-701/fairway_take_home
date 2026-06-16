@@ -9,30 +9,30 @@ Grades are BLANK by design (G4 — fill these in by hand):
 
 | # | cat | question | route | refused | reason | top_sim | citations | gaps | correct | grounded | refusal-correct |
 |---|-----|----------|-------|---------|--------|---------|-----------|------|---------|----------|-----------------|
-| 1 | lookup | What was Apple's total operating income for fiscal year 2025? | single | no |  | 0.000 | AAPL-XBRL-OperatingIncomeLoss |  |  |  |  |
-| 2 | lookup | How much net cash did NVIDIA generate from operating activities in its most recent fiscal year? | single | no |  | 0.748 | NVDA-0079, NVDA-0111 |  |  |  |  |
-| 3 | lookup | What was Caterpillar's long-term debt as of December 31, 2025? | single | no |  | 0.766 | CAT-0150, CAT-0236, CAT-0238 |  |  |  |  |
-| 4 | year_over_year | Did JPMorgan Chase's provision for credit losses increase or decrease from 2024 to 2025, and by how much in dollar terms? | single | no |  | 0.000 | JPM-XBRL-ProvisionForLoanLeaseAndOtherLosses_ProvisionForLoanLeaseAndOtherLosses |  |  |  |  |
-| 5 | year_over_year | How did NVIDIA's research and development expenses change from fiscal year 2025 to fiscal year 2026, both in dollar terms and as a percentage of total revenue? | single | no |  | 0.000 | NVDA-XBRL-ResearchAndDevelopmentExpense_ResearchAndDevelopmentExpense |  |  |  |  |
-| 6 | segment_lookup | What were Sam's Club's net sales for Walmart's fiscal year ended January 31, 2026? | single | no |  | 0.784 | WMT-0077 |  |  |  |  |
-| 7 | comparison | Which of the six companies reported the highest operating income (or closest equivalent) in its most recent fiscal year, and what were each company's figures? | decompose | no |  | 0.000 | AAPL-XBRL-OperatingIncomeLoss, CAT-XBRL-OperatingIncomeLoss, KO-XBRL-OperatingIncomeLoss, NVDA-XBRL-OperatingIncomeLoss, WMT-XBRL-OperatingIncomeLoss | JPMorgan Chase |  |  |  |
-| 8 | comparison | Which of the six companies had the lowest total revenue in its most recent fiscal year? | decompose | no |  | 0.000 | AAPL-XBRL-RevenueFromContractWithCustomerExcludingAssessedTax, CAT-XBRL-Revenues, JPM-XBRL-RevenuesNetOfInterestExpense, KO-XBRL-Revenues, NVDA-XBRL-Revenues, WMT-XBRL-Revenues |  |  |  |  |
-| 9 | units | What was NVIDIA's basic earnings per share for its fiscal year ended January 25, 2026? | single | no |  | 0.000 | NVDA-XBRL-EarningsPerShareBasic |  |  |  |  |
-| 10 | fiscal_year | Compare Apple's, NVIDIA's, and Caterpillar's most recent net income. What fiscal period does each figure cover? | decompose | no |  | 0.000 | AAPL-XBRL-NetIncomeLoss, CAT-XBRL-ProfitLoss, NVDA-XBRL-NetIncomeLoss |  |  |  |  |
-| 11 | computed_metric | What was Coca-Cola's gross profit and gross profit margin for fiscal year 2025? | single | no |  | 0.667 | KO-0088, KO-0117 |  |  |  |  |
-| 12 | semantic | What cybersecurity risks did Walmart disclose in its most recent 10-K filing? | single | no |  | 0.766 | WMT-0027, WMT-0043 |  |  |  |  |
-| 13 | semantic | Which of the six companies identified supply chain disruption as a material risk factor in their most recent 10-K? | decompose | no |  | 0.692 | AAPL-0010, AAPL-0012, AAPL-0018, CAT-0018, CAT-0031, JPM-0030, KO-0022, KO-0023, NVDA-0023, NVDA-0031, WMT-0004, WMT-0022 |  |  |  |  |
-| 14 | alias | What was Chase's total net revenue for fiscal year 2025? | single | no |  | 0.000 | JPM-XBRL-RevenuesNetOfInterestExpense |  |  |  |  |
-| 15 | router_clarify | What was total revenue last year? | clarify | yes | clarify | 0.000 |  |  |  |  |  |
-| 16 | router_edge | Compare Apple's and Tesla's most recent annual revenue. | single | no |  | 0.000 | AAPL-XBRL-RevenueFromContractWithCustomerExcludingAssessedTax |  |  |  |  |
-| 17 | refusal_oos | What was Amazon's net income for its most recent fiscal year? | oos | no |  | 0.500 |  |  |  |  |  |
-| 18 | refusal_undisclosed | What is Apple's employee engagement or satisfaction score? | single | no |  | 0.536 | AAPL-0009 |  |  |  |  |
-| 19 | refusal_undisclosed | What is Caterpillar's Net Promoter Score from dealers or customers? | single | no |  | 0.509 |  | Caterpillar |  |  |  |
-| 20 | multi_statement | For Caterpillar's fiscal year 2025, what was its net cash provided by operating activities, and how did that compare to its net income for the same period? | single | no |  | 0.000 | CAT-XBRL-NetCashProvidedByUsedInOperatingActivities_ProfitLoss |  |  |  |  |
-| 21 | multi_statement | What were Apple's capital expenditures for fiscal year 2025, and what were its total assets as of September 27, 2025? | single | no |  | 0.730 | AAPL-0085, AAPL-0094, AAPL-0107, AAPL-0120 |  |  |  |  |
-| 22 | multi_statement | How much did NVIDIA pay in dividends during its fiscal year ended January 26, 2026, and what was its income tax provision for the same period? | single | no |  | 0.712 | NVDA-0162, NVDA-0164 |  |  |  |  |
-| 23 | multi_statement | How much did Walmart spend repurchasing its own shares during fiscal year ended January 31, 2026, and what was its total shareholders' equity at that date? | single | no |  | 0.752 | WMT-0090, WMT-0136 |  |  |  |  |
-| 24 | segment_lookup | What was NVIDIA's Data Center segment revenue for its fiscal year ended January 25, 2026? | single | no |  | 0.000 | NVDA-XBRL-Revenues |  |  |  |  |
+| 1 | lookup | What was Apple's total operating income for fiscal year 2025? | single | no |  | 0.000 | AAPL-XBRL-OperatingIncomeLoss |  | yes | yes | N/A |
+| 2 | lookup | How much net cash did NVIDIA generate from operating activities in its most recent fiscal year? | single | no |  | 0.748 | NVDA-0079, NVDA-0111 |  | yes | yes | N/A |
+| 3 | lookup | What was Caterpillar's long-term debt as of December 31, 2025? | single | no |  | 0.766 | CAT-0150, CAT-0236, CAT-0238 |  | yes | yes | N/A |
+| 4 | year_over_year | Did JPMorgan Chase's provision for credit losses increase or decrease from 2024 to 2025, and by how much in dollar terms? | single | no |  | 0.000 | JPM-XBRL-ProvisionForLoanLeaseAndOtherLosses_ProvisionForLoanLeaseAndOtherLosses |  | yes | yes | N/A |
+| 5 | year_over_year | How did NVIDIA's research and development expenses change from fiscal year 2025 to fiscal year 2026, both in dollar terms and as a percentage of total revenue? | single | no |  | 0.000 | NVDA-XBRL-ResearchAndDevelopmentExpense_ResearchAndDevelopmentExpense |  | yes | yes | N/A |
+| 6 | segment_lookup | What were Sam's Club's net sales for Walmart's fiscal year ended January 31, 2026? | single | no |  | 0.784 | WMT-0077 |  | yes | yes | N/A |
+| 7 | comparison | Which of the six companies reported the highest operating income (or closest equivalent) in its most recent fiscal year, and what were each company's figures? | decompose | no |  | 0.000 | AAPL-XBRL-OperatingIncomeLoss, CAT-XBRL-OperatingIncomeLoss, KO-XBRL-OperatingIncomeLoss, NVDA-XBRL-OperatingIncomeLoss, WMT-XBRL-OperatingIncomeLoss | JPMorgan Chase | yes | yes | N/A |
+| 8 | comparison | Which of the six companies had the lowest total revenue in its most recent fiscal year? | decompose | no |  | 0.000 | AAPL-XBRL-RevenueFromContractWithCustomerExcludingAssessedTax, CAT-XBRL-Revenues, JPM-XBRL-RevenuesNetOfInterestExpense, KO-XBRL-Revenues, NVDA-XBRL-Revenues, WMT-XBRL-Revenues |  | yes | yes | N/A |
+| 9 | units | What was NVIDIA's basic earnings per share for its fiscal year ended January 25, 2026? | single | no |  | 0.000 | NVDA-XBRL-EarningsPerShareBasic |  | yes | yes | N/A |
+| 10 | fiscal_year | Compare Apple's, NVIDIA's, and Caterpillar's most recent net income. What fiscal period does each figure cover? | decompose | no |  | 0.000 | AAPL-XBRL-NetIncomeLoss, CAT-XBRL-ProfitLoss, NVDA-XBRL-NetIncomeLoss |  | yes | yes | N/A |
+| 11 | computed_metric | What was Coca-Cola's gross profit and gross profit margin for fiscal year 2025? | single | no |  | 0.667 | KO-0088, KO-0117 |  | yes | yes | N/A |
+| 12 | semantic | What cybersecurity risks did Walmart disclose in its most recent 10-K filing? | single | no |  | 0.766 | WMT-0027, WMT-0043 |  | yes | yes | N/A |
+| 13 | semantic | Which of the six companies identified supply chain disruption as a material risk factor in their most recent 10-K? | decompose | no |  | 0.692 | AAPL-0010, AAPL-0012, AAPL-0018, CAT-0018, CAT-0031, JPM-0030, KO-0022, KO-0023, NVDA-0023, NVDA-0031, WMT-0004, WMT-0022 |  | yes | yes | N/A |
+| 14 | alias | What was Chase's total net revenue for fiscal year 2025? | single | no |  | 0.000 | JPM-XBRL-RevenuesNetOfInterestExpense |  | yes | yes | N/A |
+| 15 | router_clarify | What was total revenue last year? | clarify | yes | clarify | 0.000 |  |  | N/A | N/A | yes |
+| 16 | router_edge | Compare Apple's and Tesla's most recent annual revenue. | single | no |  | 0.000 | AAPL-XBRL-RevenueFromContractWithCustomerExcludingAssessedTax |  | partial | yes | N/A |
+| 17 | refusal_oos | What was Amazon's net income for its most recent fiscal year? | oos | no |  | 0.500 |  |  | N/A | N/A | yes |
+| 18 | refusal_undisclosed | What is Apple's employee engagement or satisfaction score? | single | no |  | 0.536 | AAPL-0009 |  | N/A | N/A | yes |
+| 19 | refusal_undisclosed | What is Caterpillar's Net Promoter Score from dealers or customers? | single | no |  | 0.509 |  | Caterpillar | N/A | N/A | yes |
+| 20 | multi_statement | For Caterpillar's fiscal year 2025, what was its net cash provided by operating activities, and how did that compare to its net income for the same period? | single | no |  | 0.000 | CAT-XBRL-NetCashProvidedByUsedInOperatingActivities_ProfitLoss |  | yes | partial | N/A |
+| 21 | multi_statement | What were Apple's capital expenditures for fiscal year 2025, and what were its total assets as of September 27, 2025? | single | no |  | 0.730 | AAPL-0085, AAPL-0094, AAPL-0107, AAPL-0120 |  | no | no | N/A |
+| 22 | multi_statement | How much did NVIDIA pay in dividends during its fiscal year ended January 26, 2026, and what was its income tax provision for the same period? | single | no |  | 0.712 | NVDA-0162, NVDA-0164 |  | partial | partial | N/A |
+| 23 | multi_statement | How much did Walmart spend repurchasing its own shares during fiscal year ended January 31, 2026, and what was its total shareholders' equity at that date? | single | no |  | 0.752 | WMT-0090, WMT-0136 |  | partial | partial | N/A |
+| 24 | segment_lookup | What was NVIDIA's Data Center segment revenue for its fiscal year ended January 25, 2026? | single | no |  | 0.000 | NVDA-XBRL-Revenues |  | no | no | N/A |
 
 
 ## Answers (for grading)
