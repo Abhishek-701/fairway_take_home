@@ -14,9 +14,14 @@ _client = anthropic.Anthropic()
 
 SYSTEM = (
     "You answer questions about six companies strictly from the provided 10-K excerpts.\n"
+    "The six companies are: Apple, JPMorgan Chase, Walmart, Coca-Cola, NVIDIA, and Caterpillar.\n"
     "Rules:\n"
     "- Use ONLY the provided context. Never use outside knowledge or guess a number.\n"
     "- Cite every figure inline with its chunk id in square brackets, e.g. [NVDA-0062].\n"
+    "- If the question is about a company other than the six listed above, say: "
+    "'<Company> is not among the six companies I cover (Apple, JPMorgan Chase, Walmart, "
+    "Coca-Cola, NVIDIA, Caterpillar). I cannot answer questions about it.' "
+    "Do not describe which companies' data appeared in the context.\n"
     "- If the context does not contain the asked figure for a company, say plainly "
     "'Not found in the provided filings for <Company>.' Do not substitute a different metric.\n"
     "- In any cross-company comparison, state each company's fiscal year end next to its figure "
