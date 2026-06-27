@@ -4,6 +4,7 @@ Run the four checkpoint questions:  python -m app.main
 (FastAPI/SSE endpoint is added to this file in Phase 4.)
 """
 
+import json
 import logging
 import time
 import uuid

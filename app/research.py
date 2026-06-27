@@ -231,6 +231,9 @@ def _citation_payload(cited: Iterable[str], context_chunks: list[dict]) -> list[
         "company": ctx[cid]["company"],
         "section": ctx[cid].get("section_title") or ctx[cid].get("item") or "",
         "text": ctx[cid]["text"],
+        "kind": ctx[cid].get("kind"),
+        "data": ctx[cid].get("data", {}),
+        "facts": ctx[cid].get("facts", []),
     } for cid in cited if cid in ctx]
 
 
@@ -360,6 +363,9 @@ def stream_events(question: str, conversation_context: ConversationContext | Non
         "company": ctx[cid]["company"],
         "section": ctx[cid].get("section_title") or ctx[cid].get("item") or "",
         "text": ctx[cid]["text"],
+        "kind": ctx[cid].get("kind"),
+        "data": ctx[cid].get("data", {}),
+        "facts": ctx[cid].get("facts", []),
     } for cid in cited if cid in ctx]
     yield sse("done", {"citations": citations, "gaps": reflection["gaps"], "refused": False,
                        "plan": research_plan, "tool_calls": tool_calls,
