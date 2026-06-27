@@ -42,6 +42,15 @@ FANOUT_CAP = 12           # max sub-queries; beyond this, answer primary metric 
 
 # --- Agent/tool execution ---
 AGENT_MAX_STEPS = 8
+SEGMENT_INTENT_RE = (
+    r"\b(segment|division|data\s+center|datacenter|sam'?s?\s*club|wholesale\s+club|"
+    r"financial\s+products?|me&t)\b"
+)
+COMPOUND_INTENT_RE = r"\b(and|also|as well as|compare .* to|versus|vs\.?)\b"
+COMPUTE_INTENT_RE = (
+    r"\b(price.to.sales|p/s|market cap.{0,40}revenue|market capitalization.{0,40}revenue|"
+    r"margin|ratio|percentage|percent|growth|change)\b"
+)
 
 # --- Market data ---
 MARKET_PROVIDER = "yfinance"
@@ -57,6 +66,8 @@ MARKET_DISCLAIMER = "Market data is provided by yfinance and may be delayed; not
 # --- API / production controls ---
 API_KEY = os.getenv("FAIRWAY_API_KEY", "")
 RATE_LIMIT_PER_MINUTE = int(os.getenv("FAIRWAY_RATE_LIMIT_PER_MINUTE", "60"))
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+REDIS_URL = os.getenv("REDIS_URL", "")
 
 # --- Storage ---
 _ROOT = Path(__file__).resolve().parent.parent
@@ -64,6 +75,7 @@ CHUNKS_PATH = _ROOT / "data" / "chunks.json"
 CHROMA_DIR = str(_ROOT / "data" / "chroma")
 COLLECTION = "filings"
 SESSION_DB_PATH = _ROOT / "data" / "sessions.sqlite3"
+AUDIT_LOG_PATH = _ROOT / "data" / "audit.jsonl"
 
 # --- XBRL fact store ---
 FACTS_PATH = _ROOT / "data" / "facts.json"
@@ -109,6 +121,31 @@ XBRL_CONCEPT_MAP: dict[str, dict[str, list[str]]] = {
         "JPM": ["us-gaap:ProvisionForLoanLeaseAndOtherLosses"],
         "_default": [],                                  # not applicable outside banking
     },
+    "assets": {
+        "_default": ["us-gaap:Assets"],
+    },
+    "liabilities": {
+        "_default": ["us-gaap:Liabilities"],
+    },
+    "equity": {
+        "WMT": ["us-gaap:StockholdersEquity"],
+        "_default": ["us-gaap:StockholdersEquity", "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest"],
+    },
+    "long_term_debt": {
+        "_default": ["us-gaap:LongTermDebtNoncurrent", "us-gaap:LongTermDebt"],
+    },
+    "capex": {
+        "_default": ["us-gaap:PaymentsToAcquirePropertyPlantAndEquipment"],
+    },
+    "dividends_paid": {
+        "_default": ["us-gaap:PaymentsOfDividends", "us-gaap:PaymentsOfDividendsCommonStock"],
+    },
+    "share_repurchases": {
+        "_default": ["us-gaap:PaymentsForRepurchaseOfCommonStock"],
+    },
+    "income_tax_provision": {
+        "_default": ["us-gaap:IncomeTaxExpenseBenefit"],
+    },
 }
 
 # Keyword patterns that map a question fragment to a canonical metric name.
@@ -116,8 +153,16 @@ XBRL_CONCEPT_MAP: dict[str, dict[str, list[str]]] = {
 # Used by xbrl_lookup() in main.py to detect numeric intent without an LLM.
 XBRL_KEYWORD_MAP: list[tuple[str, str]] = [
     (r"provision.{0,30}(credit|loan)", "provision_credit_loss"),
+    (r"income\s+tax\s+(provision|expense)|tax\s+provision", "income_tax_provision"),
     (r"operating\s+(income|profit|earn)", "operating_income"),
     (r"operating\s+cash\s+flow|cash.{0,20}operat", "operating_cash_flow"),
+    (r"capital\s+expenditures?|capex|property,\s*plant\s+and\s+equipment", "capex"),
+    (r"dividends?\s+(paid|during)|paid\s+.*dividends?", "dividends_paid"),
+    (r"repurchas.{0,30}(shares?|stock|common)|share\s+repurchases?", "share_repurchases"),
+    (r"long.term\s+debt|debt\s+due\s+after\s+one\s+year", "long_term_debt"),
+    (r"shareholders?'?\s+equity|stockholders?'?\s+equity|total\s+equity", "equity"),
+    (r"total\s+assets?|assets\s+as\s+of", "assets"),
+    (r"total\s+liabilities|liabilities\s+as\s+of", "liabilities"),
     (r"net\s+(income|earn|profit)|profit.{0,10}loss", "net_income"),
     (r"r\s*&\s*d|research.{0,20}develop", "r_and_d"),
     (r"eps|earnings?\s+per\s+share|basic\s+earn", "eps_basic"),

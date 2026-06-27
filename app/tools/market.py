@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from app import config
+from app.tools.market_provider import get_provider
 
 try:
     from cachetools import TTLCache
@@ -79,12 +80,12 @@ def market_quote(ticker: str, **_: Any) -> dict:
         return {"status": "ok", "cached": True, "data": data, "evidence": [build_market_chunk(ticker, data)]}
 
     try:
-        import yfinance as yf
+        provider = get_provider()
+        info = provider.quote(ticker)
     except ImportError:
         return {"status": "error", "error": "yfinance_not_installed", "evidence": []}
-
-    quote = yf.Ticker(ticker)
-    info = quote.fast_info
+    except Exception as exc:  # noqa: BLE001 - provider boundary returns structured errors
+        return {"status": "error", "error": f"market_provider_error:{exc}", "evidence": []}
     price = _first(info, "last_price", "regular_market_price", "lastPrice", "regularMarketPrice")
     previous_close = _first(info, "previous_close", "regularMarketPreviousClose", "previousClose")
     shares = _first(info, "shares", "sharesOutstanding")
@@ -102,7 +103,7 @@ def market_quote(ticker: str, **_: Any) -> dict:
         "change_percent": round(change_percent, 2) if change_percent is not None else None,
         "market_cap": round(market_cap, 2) if market_cap is not None else None,
         "currency": _first(info, "currency"),
-        "source": config.MARKET_PROVIDER,
+        "source": provider.name,
         "as_of": _now_iso(),
         "disclaimer": config.MARKET_DISCLAIMER,
     }
@@ -118,11 +119,12 @@ def market_history(ticker: str, period: str = "1mo", **_: Any) -> dict:
         return {"status": "ok", "cached": True, "data": data, "evidence": [build_market_chunk(ticker, data, "history")]}
 
     try:
-        import yfinance as yf
+        provider = get_provider()
+        hist = provider.history(ticker, period)
     except ImportError:
         return {"status": "error", "error": "yfinance_not_installed", "evidence": []}
-
-    hist = yf.Ticker(ticker).history(period=period)
+    except Exception as exc:  # noqa: BLE001 - provider boundary returns structured errors
+        return {"status": "error", "error": f"market_provider_error:{exc}", "evidence": []}
     rows = []
     if not hist.empty:
         for idx, row in hist.tail(config.MARKET_HISTORY_ROWS).iterrows():
@@ -139,7 +141,7 @@ def market_history(ticker: str, period: str = "1mo", **_: Any) -> dict:
         "company": _company(ticker),
         "period": period,
         "rows": rows,
-        "source": config.MARKET_PROVIDER,
+        "source": provider.name,
         "as_of": _now_iso(),
         "disclaimer": config.MARKET_DISCLAIMER,
     }

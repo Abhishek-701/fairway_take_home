@@ -13,6 +13,10 @@ from app import config, router
 from app.tools.market import detect_market_intent
 
 
+def _matches(pattern: str, question: str) -> bool:
+    return bool(re.search(pattern, question, re.I))
+
+
 def _mentioned_tickers(question: str, route: dict) -> list[str]:
     tickers = list(route.get("tickers", []))
     low = question.lower()
@@ -27,6 +31,9 @@ def route_tools(question: str, route: dict | None = None, metrics: list[str] | N
     route = route or router.route(question)
     metrics = metrics or []
     market = detect_market_intent(question)
+    segment = _matches(config.SEGMENT_INTENT_RE, question)
+    compute = _matches(config.COMPUTE_INTENT_RE, question)
+    history = market and _matches(r"\b(history|chart|over the last|past|month|week|year)\b", question)
     actions: list[dict] = []
 
     if route["mode"] == "clarify" and not market:
@@ -34,16 +41,22 @@ def route_tools(question: str, route: dict | None = None, metrics: list[str] | N
     elif route["mode"] == "oos" and not market:
         actions.append({"tool": "filing_rag", "reason": "out_of_corpus_probe"})
     else:
-        if metrics:
+        if metrics and not segment:
             actions.append({"tool": "facts_lookup", "metrics": metrics})
-        if route["mode"] == "decompose":
+        if segment:
+            actions.append({"tool": "filing_rag", "tickers": route["tickers"], "reason": "segment_intent"})
+        elif route["mode"] == "decompose":
             actions.append({"tool": "multi_company_compare", "tickers": route["tickers"]})
-        elif not market or not metrics:
+        elif not market and not metrics:
             actions.append({"tool": "filing_rag", "tickers": route["tickers"]})
 
         if market:
             for ticker in _mentioned_tickers(question, route):
-                actions.append({"tool": "market_quote", "args": {"ticker": ticker}})
+                actions.append({"tool": "market_history" if history else "market_quote",
+                                "args": {"ticker": ticker}})
+
+        if compute:
+            actions.append({"tool": "compute_metric", "args": {"metric": "market_cap_to_revenue"}})
 
         actions.append({"tool": "synthesize_report"})
 
@@ -52,5 +65,7 @@ def route_tools(question: str, route: dict | None = None, metrics: list[str] | N
         "route": route,
         "metrics": metrics,
         "market_intent": market,
+        "segment_intent": segment,
+        "compute_intent": compute,
         "actions": actions[: config.AGENT_MAX_STEPS],
     }

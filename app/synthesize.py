@@ -99,6 +99,7 @@ def build_xbrl_context(facts: list[dict]) -> tuple[str, list[dict]]:
             "fused_score": 1.0,  # XBRL facts rank above RAG chunks
             "text": chunk_text,
             "kind": "xbrl",
+            "facts": ticker_facts,
         })
 
     context_str = build_context(synthetic_chunks)

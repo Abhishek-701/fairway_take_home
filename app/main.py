@@ -4,7 +4,6 @@ Run the four checkpoint questions:  python -m app.main
 (FastAPI/SSE endpoint is added to this file in Phase 4.)
 """
 
-import json
 import logging
 import time
 import uuid
@@ -15,8 +14,9 @@ from fastapi import FastAPI
 from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app import config, research
+from app import audit, config, corpus, research
 from app.agent import session
+from app.agent.context import from_history
 from app.tools import market
 
 xbrl_lookup = research.xbrl_lookup
@@ -52,23 +52,7 @@ def _guard(request: Request, x_api_key: str | None = Header(default=None)) -> No
 
 
 def _corpus_status() -> dict:
-    manifest_path = config._ROOT / "data" / "manifest.json"
-    chunks_path = config.CHUNKS_PATH
-    facts_path = config.FACTS_PATH
-    manifest = []
-    if manifest_path.exists():
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    chunk_count = 0
-    if chunks_path.exists():
-        chunk_count = len(json.loads(chunks_path.read_text(encoding="utf-8")))
-    return {
-        "companies": config.COMPANIES,
-        "manifest_count": len(manifest),
-        "chunk_count": chunk_count,
-        "facts_present": facts_path.exists(),
-        "chroma_present": (config._ROOT / "data" / "chroma").exists(),
-        "filings": manifest,
-    }
+    return corpus.status()
 
 
 def _startup_errors() -> list[str]:
@@ -127,16 +111,26 @@ def research_result(q: str, request: Request, x_api_key: str | None = Header(def
 def chat(req: ChatRequest, request: Request, x_api_key: str | None = Header(default=None)):
     _guard(request, x_api_key)
     sid = req.session_id or session.new_session_id()
+    prior_history = session.history(sid)
+    conversation_context = from_history(prior_history)
     session.append(sid, "user", req.message)
     if req.stream:
         def events():
             yield research.sse("session", {"session_id": sid})
-            yield from research.stream_events(req.message)
+            yield from research.stream_events(req.message, conversation_context)
         return StreamingResponse(events(), media_type="text/event-stream")
 
-    result = research.run(req.message)
+    result = research.run(req.message, conversation_context)
     result["session_id"] = sid
     session.append(sid, "assistant", result["answer"], {"tool_calls": result.get("tool_calls", [])})
+    audit.record({
+        "session_id": sid,
+        "question": req.message,
+        "contextualized_question": result.get("contextualized_question"),
+        "citations": result.get("citations", []),
+        "tool_calls": result.get("tool_calls", []),
+        "refused": result.get("refused", False),
+    })
     return result
 
 
@@ -170,7 +164,14 @@ def health():
         "errors": errors,
         "market_provider": config.MARKET_PROVIDER,
         "openai_configured": bool(config.OPENAI_API_KEY) if hasattr(config, "OPENAI_API_KEY") else None,
+        "anthropic_configured": bool(config.ANTHROPIC_API_KEY) if hasattr(config, "ANTHROPIC_API_KEY") else None,
         "session_store": session.status(),
+        "audit_log": audit.status(),
+        "corpus": _corpus_status(),
+        "external_state": {
+            "postgres_configured": bool(config.DATABASE_URL),
+            "redis_configured": bool(config.REDIS_URL),
+        },
     }
 
 

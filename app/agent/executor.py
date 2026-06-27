@@ -21,12 +21,14 @@ def execute(actions: list[dict[str, Any]], context: dict[str, Any]) -> tuple[lis
         args = {**action.get("args", {})}
         args.setdefault("question", context.get("question"))
         args.setdefault("route", context.get("route"))
+        if tool == "compute_metric":
+            args.setdefault("evidence", evidence)
         result = run_tool(tool, **args)
         elapsed_ms = round((time.perf_counter() - started) * 1000)
         call = {k: v for k, v in result.items() if k not in {"meta", "evidence"}}
         call["elapsed_ms"] = elapsed_ms
         tool_calls.append(call)
         evidence.extend(result.get("evidence", []))
-        if result.get("meta") is not None:
+        if result.get("meta") is not None and context.get("meta") is None:
             context["meta"] = result["meta"]
     return tool_calls, evidence

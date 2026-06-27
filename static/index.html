@@ -22,6 +22,10 @@
   #gaps { color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 12px; margin-top: 12px; display: none; }
   #quotes { color: #065f46; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 6px; padding: 8px 12px; margin-top: 12px; display: none; font-size: .86rem; }
   #trace { color: #374151; background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 6px; padding: 8px 12px; margin-top: 12px; display: none; font-size: .86rem; }
+  #messages { margin-top: 18px; display: grid; gap: 12px; }
+  .message { border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px 14px; }
+  .message.user { background: #eef2ff; }
+  .message.assistant { background: #f7f7f8; white-space: pre-wrap; }
   h2 { font-size: .95rem; margin: 22px 0 8px; color: #444; }
   details { border: 1px solid #e5e5e5; border-radius: 6px; padding: 8px 12px; margin-bottom: 8px; }
   summary { cursor: pointer; font-weight: 600; font-size: .9rem; }
@@ -50,6 +54,7 @@
   <div id="quotes"></div>
   <div id="trace"></div>
   <div id="citations"></div>
+  <div id="messages"></div>
 
 <script>
 const form = document.getElementById("form");
@@ -61,7 +66,9 @@ const gapsEl = document.getElementById("gaps");
 const quotesEl = document.getElementById("quotes");
 const traceEl = document.getElementById("trace");
 const citesEl = document.getElementById("citations");
+const messagesEl = document.getElementById("messages");
 let es = null;
+let sessionId = localStorage.getItem("fairway_session_id") || null;
 
 clearBtn.addEventListener("click", () => {
   if (es) { es.close(); es = null; }
@@ -73,9 +80,19 @@ clearBtn.addEventListener("click", () => {
   quotesEl.textContent = "";
   traceEl.style.display = "none";
   traceEl.textContent = "";
+  messagesEl.innerHTML = "";
+  sessionId = null;
+  localStorage.removeItem("fairway_session_id");
   askBtn.disabled = false;
   qInput.focus();
 });
+
+function addMessage(role, text) {
+  const div = document.createElement("div");
+  div.className = "message " + role;
+  div.textContent = (role === "user" ? "You: " : "Agent: ") + text;
+  messagesEl.appendChild(div);
+}
 
 form.addEventListener("submit", (e) => {
   e.preventDefault();
@@ -91,15 +108,21 @@ form.addEventListener("submit", (e) => {
   traceEl.style.display = "none";
   traceEl.textContent = "";
   askBtn.disabled = true;
+  addMessage("user", q);
 
-  es = new EventSource("/api/stream?q=" + encodeURIComponent(q));
-
-  es.addEventListener("token", (ev) => {
-    answerEl.textContent += JSON.parse(ev.data).text;
-  });
-
-  es.addEventListener("done", (ev) => {
-    const data = JSON.parse(ev.data);
+  fetch("/api/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({message: q, session_id: sessionId, stream: false})
+  })
+  .then((res) => res.json())
+  .then((data) => {
+    if (data.session_id) {
+      sessionId = data.session_id;
+      localStorage.setItem("fairway_session_id", sessionId);
+    }
+    answerEl.textContent = data.answer || "";
+    addMessage("assistant", answerEl.textContent);
     if (data.gaps && data.gaps.length) {
       gapsEl.textContent = "Not found in the filings for: " + data.gaps.join(", ");
       gapsEl.style.display = "block";
@@ -129,10 +152,11 @@ form.addEventListener("submit", (e) => {
       }
     }
     askBtn.disabled = false;
-    es.close();
+  })
+  .catch(() => {
+    askBtn.disabled = false;
+    answerEl.textContent = "Request failed. Please try again.";
   });
-
-  es.onerror = () => { askBtn.disabled = false; if (es) es.close(); };
 });
 
 document.querySelectorAll(".chip").forEach((chip) => {

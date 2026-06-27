@@ -13,6 +13,7 @@ import time
 from collections.abc import Iterable
 
 from app import config, decompose, facts as facts_mod, retrieve, router, synthesize
+from app.agent.context import ConversationContext, contextualize_question
 from app.agent import executor
 from app.agent.router_llm import route_tools
 
@@ -51,6 +52,33 @@ def _rag_tool_name(route: dict) -> str:
     return "filing_rag"
 
 
+def _company_name(ticker: str | None) -> str:
+    return config.COMPANIES.get(ticker or "", "")
+
+
+def _is_segment_question(question: str) -> bool:
+    return bool(re.search(config.SEGMENT_INTENT_RE, question, re.I))
+
+
+def _compound_parts(question: str) -> list[str]:
+    if not re.search(config.COMPOUND_INTENT_RE, question, re.I):
+        return []
+    parts = [p.strip(" ?,") for p in re.split(r"\b(?:and|also|as well as)\b", question, flags=re.I)]
+    return [p for p in parts if len(p.split()) >= 3]
+
+
+def _single_company_subs(question: str, ticker: str) -> list[dict]:
+    parts = _compound_parts(question)
+    if len(parts) <= 1:
+        return [{"ticker": ticker, "query": question}]
+    company = _company_name(ticker)
+    subs = []
+    for part in parts[: config.FANOUT_CAP]:
+        query = part if company.lower() in part.lower() else f"{company} {part}"
+        subs.append({"ticker": ticker, "query": query})
+    return subs
+
+
 def detect_xbrl_metrics(question: str) -> list[str]:
     """Return every configured XBRL metric mentioned in the question."""
     matched: list[str] = []
@@ -72,7 +100,7 @@ def xbrl_lookup(question: str, route: dict) -> dict | None:
     mode = route["mode"]
     tickers = route["tickers"]
 
-    if _SEGMENT_BAIL_RE.search(question):
+    if _SEGMENT_BAIL_RE.search(question) or _is_segment_question(question):
         return None
 
     matched_metrics = detect_xbrl_metrics(question)
@@ -146,7 +174,7 @@ def prepare(question: str, route: dict | None = None) -> dict:
     if mode == "decompose":
         subs = decompose.decompose(question, tickers)
     elif mode == "single":
-        subs = [{"ticker": tickers[0], "query": question}]
+        subs = _single_company_subs(question, tickers[0])
     else:
         subs = [{"ticker": None, "query": question}]
     meta["sub_queries"] = subs
@@ -221,6 +249,9 @@ def _prepare_with_tools(question: str, route: dict, research_plan: dict) -> tupl
     context = {"question": question, "route": route}
     tool_calls, evidence = executor.execute(research_plan["actions"], context)
     meta = context.get("meta")
+    if not meta and evidence:
+        meta = {"route": route, "sub_queries": [], "retrieval": [], "context_chunks": evidence,
+                "refused": False, "xbrl_hit": False}
     if not meta:
         tool_start = time.perf_counter()
         meta = prepare(question, route)
@@ -249,20 +280,24 @@ def finalize(question: str, meta: dict) -> dict:
     }
 
 
-def run(question: str) -> dict:
+def run(question: str, conversation_context: ConversationContext | None = None) -> dict:
     """Full non-streaming research run with plan, tool trace, and answer."""
     started = time.perf_counter()
-    route = router.route(question)
-    research_plan = plan(question, route)
-    meta, tool_calls = _prepare_with_tools(question, route, research_plan)
+    working_question, context_meta = contextualize_question(question, conversation_context)
+    route = router.route(working_question)
+    research_plan = plan(working_question, route)
+    meta, tool_calls = _prepare_with_tools(working_question, route, research_plan)
 
     if meta.get("refused"):
         reflection = reflect(meta, meta["answer"])
         return {**meta, "plan": research_plan, "tool_calls": tool_calls,
-                "reflection": reflection, "elapsed_ms": _elapsed(started)}
+                "reflection": reflection, "question": question,
+                "contextualized_question": working_question,
+                "conversation_context": context_meta,
+                "elapsed_ms": _elapsed(started)}
 
     tool_start = time.perf_counter()
-    result = finalize(question, meta)
+    result = finalize(working_question, meta)
     tool_calls.append({
         "tool": "synthesize_report",
         "status": "ok",
@@ -270,6 +305,8 @@ def run(question: str) -> dict:
         "elapsed_ms": _elapsed(tool_start),
     })
     return {**result, "plan": research_plan, "tool_calls": tool_calls,
+            "question": question, "contextualized_question": working_question,
+            "conversation_context": context_meta,
             "elapsed_ms": _elapsed(started)}
 
 
@@ -282,12 +319,13 @@ def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
-def stream_events(question: str):
+def stream_events(question: str, conversation_context: ConversationContext | None = None):
     """SSE generator: stream answer tokens, then a done event with metadata."""
     started = time.perf_counter()
-    route = router.route(question)
-    research_plan = plan(question, route)
-    meta, tool_calls = _prepare_with_tools(question, route, research_plan)
+    working_question, context_meta = contextualize_question(question, conversation_context)
+    route = router.route(working_question)
+    research_plan = plan(working_question, route)
+    meta, tool_calls = _prepare_with_tools(working_question, route, research_plan)
 
     if meta.get("refused"):
         reflection = reflect(meta, meta["answer"])
@@ -295,13 +333,16 @@ def stream_events(question: str):
         yield sse("done", {"citations": [], "gaps": [], "refused": True,
                            "refusal_reason": meta["refusal_reason"],
                            "plan": research_plan, "tool_calls": tool_calls,
-                           "reflection": reflection, "elapsed_ms": _elapsed(started)})
+                           "reflection": reflection, "question": question,
+                           "contextualized_question": working_question,
+                           "conversation_context": context_meta,
+                           "elapsed_ms": _elapsed(started)})
         return
 
     ctx = {c["chunk_id"]: c for c in meta["context_chunks"]}
     acc = []
     tool_start = time.perf_counter()
-    for token in synthesize.stream_answer(question, meta["context_chunks"]):
+    for token in synthesize.stream_answer(working_question, meta["context_chunks"]):
         acc.append(token)
         yield sse("token", {"text": token})
 
@@ -322,4 +363,7 @@ def stream_events(question: str):
     } for cid in cited if cid in ctx]
     yield sse("done", {"citations": citations, "gaps": reflection["gaps"], "refused": False,
                        "plan": research_plan, "tool_calls": tool_calls,
-                       "reflection": reflection, "elapsed_ms": _elapsed(started)})
+                       "reflection": reflection, "question": question,
+                       "contextualized_question": working_question,
+                       "conversation_context": context_meta,
+                       "elapsed_ms": _elapsed(started)})

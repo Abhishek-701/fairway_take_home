@@ -3,7 +3,7 @@ name: ci
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, master]
 
 jobs:
   python-checks:
@@ -17,6 +17,8 @@ jobs:
         run: pip install -r requirements.txt
       - name: Compile source
         run: python -m compileall app eval
+      - name: Offline unit tests
+        run: python -m unittest discover -s tests
       - name: No-LLM smoke test
         run: |
           python - <<'PY'
