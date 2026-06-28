@@ -1,8 +1,6 @@
-# Financial Analysis Agent over SEC filings and market data
+# FinSight
 
-A production-oriented financial analysis agent over the most recent 10-K filings of **Apple,
-JPMorgan Chase, Walmart, Coca-Cola, NVIDIA, and Caterpillar**. It answers filing questions with
-cited passages, can mix in yfinance-backed market data, and returns an inspectable tool trace.
+A financial analysis agent over the most recent 10-K filings of **Apple, JPMorgan Chase, Walmart, Coca-Cola, NVIDIA, and Caterpillar**. Answers filing questions with cited passages, mixes in live market data, and returns an inspectable tool trace.
 
 ## Pipeline
 
@@ -17,91 +15,78 @@ question
   → synthesize      (temp-0 Claude, streamed)       grounded answer, inline [chunk_id] citations
 ```
 
-The FastAPI app now wraps this deterministic core in a lightweight research orchestration layer:
-`plan → act → reflect`. The plan selects bounded tool actions such as `facts_lookup`,
-`filing_rag`, `multi_company_compare`, `market_quote`, and `synthesize_report`; the tool trace
-and reflection checks are returned with each response for debugging and evals.
+The FastAPI app wraps this deterministic core in a lightweight research orchestration layer: `plan → act → reflect`. The plan selects bounded tool actions (`facts_lookup`, `filing_rag`, `multi_company_compare`, `market_quote`, `synthesize_report`); the tool trace and reflection are returned with each response.
 
-**XBRL fast path:** before touching RAG, the system checks a structured fact store extracted
-from the same 10-K HTML files (inline XBRL tags). If the question asks for a known numeric
-metric (revenue, operating income, net income, EPS, R&D, provision for credit losses, operating
-cash flow), the fact is returned directly — no retrieval, no decompose LLM call. RAG runs only
-on a miss. Facts are formatted as synthetic chunks with the same schema as RAG chunks, so the
-synthesis and citation logic is completely unchanged.
+**XBRL fast path:** before touching RAG, the system checks a structured fact store extracted from inline XBRL tags in the 10-K HTML files. Known numeric metrics (revenue, operating income, net income, EPS, R&D, operating cash flow, etc.) are returned directly with no LLM call. RAG runs only on a miss.
 
-Three refusal mechanisms: a **retrieval threshold** (out-of-corpus, e.g. "Tesla's revenue"), a
-**synthesis/gaps gate** (in-corpus but undisclosed, e.g. "Coca-Cola's attrition rate"), and a
-**synthesis-level OOS guard** (the system prompt explicitly declines for any company not among the
-six — a safety net for edge cases where the cosine similarity lands exactly at the threshold and
-the gate doesn't fire, as in Q17/Amazon at 0.500).
+Three refusal layers: a **retrieval threshold** (out-of-corpus questions score low on cosine similarity), a **synthesis gaps gate** (in-corpus but undisclosed facts), and a **synthesis-level OOS guard** (system prompt explicitly declines for any company outside the six).
 
 ## Prerequisites
 
-- **Python 3.11+** (developed on 3.13). Git.
-- **Two API keys**:
-  - `OPENAI_API_KEY` — embeddings only (`text-embedding-3-small`). Anthropic has no embeddings API.
-  - `ANTHROPIC_API_KEY` — the chat model (`claude-sonnet-4-6`) for decomposition + synthesis.
-- **Optional production controls**:
-  - `FAIRWAY_API_KEY` — require `x-api-key` on expensive endpoints when set.
-  - `FAIRWAY_RATE_LIMIT_PER_MINUTE` — simple per-IP request limit.
-- Ingest cost is tiny: embedding the whole corpus is well under $0.05; each question is a
-  fraction of a cent of embeddings + one or two Claude calls. XBRL extraction is local only
-  (no API calls).
+- **Python 3.11+**
+- **Two API keys** (set in `.env`):
+  - `OPENAI_API_KEY` — embeddings only (`text-embedding-3-small`)
+  - `ANTHROPIC_API_KEY` — chat model (`claude-sonnet-4-6`) for decomposition and synthesis
+- **Optional**:
+  - `FINSIGHT_API_KEY` — require `x-api-key` on expensive endpoints when set
+  - `FINSIGHT_RATE_LIMIT_PER_MINUTE` — simple per-IP rate limit (default: 60)
+
+Embedding the full corpus costs well under $0.05. Each question is a fraction of a cent in embeddings plus one or two Claude calls. XBRL extraction is local with no API calls.
 
 ## Setup
 
 ```bash
-git clone https://github.com/Abhishek-701/fairway_take_home.git
-cd fairway_take_home
+git clone https://github.com/Abhishek-701/FinSight.git
+cd FinSight
 
 python -m venv .venv
 # Windows:        .venv\Scripts\activate
 # macOS / Linux:  source .venv/bin/activate
 pip install -r requirements.txt
 
-cp .env.example .env          # then edit .env and fill in both keys
+cp .env.example .env   # fill in OPENAI_API_KEY and ANTHROPIC_API_KEY
 ```
 
-> The reranker pulls `sentence-transformers` + `torch` (a large download). It's optional — set
-> `USE_RERANKER = False` in `app/config.py` to skip the model load.
+> The reranker pulls `sentence-transformers` + `torch` (large download). Set `USE_RERANKER = False` in `app/config.py` to skip it.
 
-## Ingest (run once; outputs are cached and reproducible)
+## Ingest
+
+Run once; outputs are cached and reproducible.
 
 ```bash
-python ingest/download.py     # fetch the 6 latest 10-Ks from SEC EDGAR -> data/raw/, data/manifest.json
-python ingest/parse.py        # HTML -> ordered prose/table blocks -> data/parsed/
-python ingest/chunk.py        # blocks -> retrieval chunks -> data/chunks.json
-python ingest/embed.py        # embed chunks -> Chroma (persisted) at data/chroma/
-python ingest/xbrl.py         # parse inline XBRL tags -> data/facts.json  (fast, no API calls)
-python ingest/validate.py     # OPTIONAL report: section coverage, CSS residue, table alignment
+python ingest/download.py   # fetch 6 latest 10-Ks from SEC EDGAR → data/raw/, data/manifest.json
+python ingest/parse.py      # HTML → ordered prose/table blocks → data/parsed/
+python ingest/chunk.py      # blocks → retrieval chunks → data/chunks.json
+python ingest/embed.py      # embed chunks → Chroma at data/chroma/
+python ingest/xbrl.py       # parse inline XBRL tags → data/facts.json
+python ingest/validate.py   # OPTIONAL: section coverage, CSS residue, table alignment report
 ```
 
-`download.py` sends a real EDGAR `User-Agent`, rate-limits, and caches (it won't re-fetch files
-already in `data/raw/`). `ingest/xbrl.py` runs a self-validating reconciliation check that warns
-if any extracted value is absent from the chunk corpus. `data/` is gitignored except
-`data/manifest.json` (provenance); `data/facts.json` is regenerated from the raw HTML.
+`download.py` rate-limits and caches — it won't re-fetch files already in `data/raw/`. `data/` is gitignored except `data/manifest.json`; `data/facts.json` is regenerated from the raw HTML.
 
-## Run the app
+## Run
 
 ```bash
 python -m uvicorn app.main:app --port 8000
-# open http://127.0.0.1:8000  — ask a question, watch it stream, expand the cited sources
+# open http://127.0.0.1:8000
 ```
 
-API shapes:
+API endpoints:
 
-- `GET /api/stream?q=...` streams answer tokens and finishes with citations, gaps, plan, and tool trace metadata.
-- `GET /api/research?q=...` returns the full structured result in one JSON response.
-- `POST /api/chat` accepts `{ "message": "...", "session_id": null, "stream": false }`.
-- `GET /api/sessions/{session_id}` returns stored chat messages.
-- `GET /api/quote/{ticker}` returns direct yfinance quote data.
-- `GET /api/companies`, `GET /api/corpus/status`, and `GET /health` support UI and deployment checks.
+| Endpoint | Description |
+|---|---|
+| `GET /api/stream?q=...` | Streams answer tokens then finishes with citations, gaps, plan, and tool trace |
+| `GET /api/research?q=...` | Full structured result in one JSON response |
+| `POST /api/chat` | `{ "message": "...", "session_id": null, "stream": false }` — preferred product endpoint |
+| `GET /api/sessions/{session_id}` | Stored chat messages |
+| `GET /api/quote/{ticker}` | Live yfinance quote |
+| `GET /api/companies` | Supported tickers |
+| `GET /api/corpus/status` | Corpus health |
+| `GET /health` | Deployment health check |
 
-`POST /api/chat` is the preferred product endpoint. It uses stored session history to resolve
-simple follow-ups while preserving the same citation requirements. Answer metadata is appended
-to `data/audit.jsonl` for source and tool-call lineage.
+`POST /api/chat` uses session history to resolve follow-ups. Answer metadata is appended to `data/audit.jsonl`.
 
-Or run the pipeline from the CLI (four checkpoint questions):
+Or run four checkpoint questions from the CLI:
 
 ```bash
 python -m app.main
@@ -109,46 +94,34 @@ python -m app.main
 
 ## Evaluate
 
-The eval questions are hand-written (see `eval/questions.yaml`). The runner emits deterministic
-regression checks plus a markdown report for human review.
-
 ```bash
-# filing regression suite:
+# filing regression suite
 python eval/run_eval.py
 
-# offline CI-safe unit tests:
+# offline unit tests (no LLM calls)
 python -m unittest discover -s tests
 
-# market / hybrid suites:
+# market and hybrid suites
 python eval/run_eval.py eval/questions_market.yaml eval/results_market.md eval/results_market.json
 python eval/run_eval.py eval/questions_hybrid.yaml eval/results_hybrid.md eval/results_hybrid.json
 ```
 
-The offline unit tests cover planner short-circuiting, segment routing, compute evidence, and
-corpus status without calling LLMs. The market and hybrid suites check tool selection, market
-citations, and as-of timestamp language. Use mocked market responses for deterministic CI if
-yfinance variability becomes noisy.
+Offline tests cover planner short-circuiting, segment routing, compute evidence, and corpus status. Questions are hand-written in `eval/questions.yaml`.
 
 ## Configuration
 
-All tunables are in **`app/config.py`** with inline rationale: chat model, retrieval `top_k`,
-RRF constant, refusal threshold, context cap, reranker toggle, XBRL maps, market cache TTLs,
-agent step cap, API key, rate-limit settings, and optional `DATABASE_URL` / `REDIS_URL` markers.
+All tunables are in `app/config.py`: chat model, retrieval `top_k`, RRF constant, refusal threshold, context cap, reranker toggle, XBRL maps, market cache TTLs, agent step cap, and API/rate-limit settings.
 
 ## Repo layout
 
 ```
 ingest/   download.py  parse.py  chunk.py  embed.py  xbrl.py  validate.py  incremental.py
-app/      main.py (FastAPI endpoints, health, chat/session APIs)
-          research.py (plan/act/reflect orchestration)
-          audit.py  corpus.py
-          agent/ (bounded executor, router, context, session store)
-          tools/ (filings, market, market provider, compute, registry)
-          router.py  retrieve.py  decompose.py  facts.py (XBRL fact store)
-          synthesize.py (build_xbrl_context)  rerank.py  config.py  __init__.py
+app/      main.py      research.py  audit.py  corpus.py  config.py
+          agent/       (executor, router, context, session store)
+          tools/       (filings, market, compute, registry)
+          router.py  retrieve.py  decompose.py  facts.py  synthesize.py  rerank.py
 eval/     questions.yaml  run_eval.py  results.md
 static/   index.html
-tests/    offline unit tests for planner, compute, and corpus status
+tests/    offline unit tests
 data/     raw/  parsed/  chunks.json  facts.json  chroma/  manifest.json
-          (all gitignored except manifest.json; facts.json regenerated by ingest/xbrl.py)
 ```
