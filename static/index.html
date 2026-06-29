@@ -280,10 +280,14 @@ function renderMarkdown(raw) {
       }
     }
 
-    // Headings
-    const h3 = t.match(/^### (.+)/);  if (h3) return `<h4>${inlineMarkdown(escapeHtml(h3[1]))}</h4>`;
-    const h2 = t.match(/^## (.+)/);   if (h2) return `<h3>${inlineMarkdown(escapeHtml(h2[1]))}</h3>`;
-    const h1 = t.match(/^# (.+)/);    if (h1) return `<h3>${inlineMarkdown(escapeHtml(h1[1]))}</h3>`;
+    // Headings — a heading and its paragraph may arrive as one block (single \n between them)
+    const blockLines = t.split("\n");
+    const firstLine  = blockLines[0];
+    const afterHead  = blockLines.slice(1).join("\n").trim();
+    const tail       = afterHead ? `<p>${afterHead.split("\n").map(l => inlineMarkdown(escapeHtml(l))).join("<br>")}</p>` : "";
+    const h3 = firstLine.match(/^### (.+)/);  if (h3) return `<h4>${inlineMarkdown(escapeHtml(h3[1]))}</h4>${tail}`;
+    const h2 = firstLine.match(/^## (.+)/);   if (h2) return `<h3>${inlineMarkdown(escapeHtml(h2[1]))}</h3>${tail}`;
+    const h1 = firstLine.match(/^# (.+)/);    if (h1) return `<h3>${inlineMarkdown(escapeHtml(h1[1]))}</h3>${tail}`;
 
     // Bullet list
     if (/^[-*] /m.test(t)) {
