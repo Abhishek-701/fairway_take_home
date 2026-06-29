@@ -34,6 +34,22 @@ _YOY_RE = re.compile(
     re.I,
 )
 
+_SUMMARY_INTENT_RE = re.compile(
+    r"\b(tell\s+me\s+(more|about|everything)|what\s+(else|can\s+you|do\s+you\s+know)|"
+    r"overview|summarize?|summary|describe|profile|all\s+about|general(ly)?)\b",
+    re.I,
+)
+
+# Fixed sub-queries used when a broad summary question is detected. Each targets
+# a different part of the 10-K so retrieval returns topically diverse chunks
+# instead of a scattered grab from a single vague query.
+_SUMMARY_TOPICS = [
+    "business overview main products services operating segments",
+    "revenue operating income net income financial performance results",
+    "key risk factors business operational and regulatory risks",
+    "strategy competitive position growth initiatives outlook",
+]
+
 
 def _refusal(reason: str, msg: str, meta: dict) -> dict:
     return {"answer": msg, "citations": [], "gaps": [], "refused": True,
@@ -68,6 +84,13 @@ def _compound_parts(question: str) -> list[str]:
 
 
 def _single_company_subs(question: str, ticker: str) -> list[dict]:
+    # Broad summary/overview questions: expand into focused topic sub-queries so
+    # each retrieval call returns targeted chunks rather than a scattered grab from
+    # one vague query. Without this the model gets thin, mixed context and fills
+    # the gap by generating an empty section outline.
+    if _SUMMARY_INTENT_RE.search(question) and not re.search(config.COMPUTE_INTENT_RE, question, re.I):
+        company = _company_name(ticker)
+        return [{"ticker": ticker, "query": f"{company} {topic}"} for topic in _SUMMARY_TOPICS]
     parts = _compound_parts(question)
     if len(parts) <= 1:
         return [{"ticker": ticker, "query": question}]

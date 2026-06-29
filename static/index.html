@@ -258,6 +258,9 @@ function renderMarkdown(raw) {
     const t = block.trim();
     if (!t) return "";
 
+    // Horizontal rule
+    if (/^[-*_]{3,}$/.test(t)) return "<hr>";
+
     // Fenced code block
     if (t.startsWith("```")) {
       const code = t.replace(/^```[^\n]*\n?/, "").replace(/\n?```$/, "");
